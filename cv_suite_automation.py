@@ -212,46 +212,46 @@ class CVSuiteAutomation:
 
         # List of tests we might execute. For brevity, only test #6 is shown below.
         self.test_list = {
-            # 1: {
-            #     "test_number": 1,
-            #     "name": "Chapter 9 Tests [USB 2 devices]",
-            #     "dialog_strings": {
-            #         1: "Please run Connector Type Tests on this device.",
-            #         2: "Please run MSC/BOT Tests on this device.",
-            #         3: "Please run MSC/UASP Tests on this device."
-            #     }
-            # },
-            # 2: {
-            #     "test_number": 2,
-            #     "name": "Chapter 9 Tests [USB 3 Gen X devices]",
-            #     "dialog_strings": {
-            #         1: "Please run Chapter 9 Tests on this device as a USB 2.0 device at all supported USB 2.0 speeds.",
-            #         2: "Please run Connector Type Tests on this device.",
-            #         3: "Please run MSC/BOT Tests on this device.",
-            #         4: "Please run MSC/UASP Tests on this device."
-            #     }
-            # },
-            # 3: {
-            #     "test_number": 3,
-            #     "name": "Connector Type Tests",
-            #     "dialog_strings": {
-            #         1: "Select power connection for DUT",
-            #         2: "Is Device Under Test an Embedded Device?"
-            #     }
-            # },
+            1: {
+                "test_number": 1,
+                "name": "Chapter 9 Tests [USB 2 devices]",
+                "dialog_strings": {
+                    1: "Please run Connector Type Tests on this device.",
+                    2: "Please run MSC/BOT Tests on this device.",
+                    3: "Please run MSC/UASP Tests on this device."
+                }
+            },
+            2: {
+                "test_number": 2,
+                "name": "Chapter 9 Tests [USB 3 Gen X devices]",
+                "dialog_strings": {
+                    1: "Please run Chapter 9 Tests on this device as a USB 2.0 device at all supported USB 2.0 speeds.",
+                    2: "Please run Connector Type Tests on this device.",
+                    3: "Please run MSC/BOT Tests on this device.",
+                    4: "Please run MSC/UASP Tests on this device."
+                }
+            },
+            3: {
+                "test_number": 3,
+                "name": "Connector Type Tests",
+                "dialog_strings": {
+                    1: "Select power connection for DUT",
+                    2: "Is Device Under Test an Embedded Device?"
+                }
+            },
             6: {
                 "test_number": 6,
                 "name": "Device Summary",
                 "dialog_strings": {}
             },
-            # 17: {
-            #     "test_number": 17,
-            #     "name": "MSC Tests",
-            #     "dialog_strings": {
-            #         1: "WARNING: The following test might destroy ALL data on this disk.  To continue with all tests, click OK.  To abort this test, click ABORT",
-            #         2: "Disconnect and power off MSC device, then click OK.  To abort this test, click ABORT"
-            #     }
-            # }
+            17: {
+                "test_number": 17,
+                "name": "MSC Tests",
+                "dialog_strings": {
+                    1: "WARNING: The following test might destroy ALL data on this disk.  To continue with all tests, click OK.  To abort this test, click ABORT",
+                    2: "Disconnect and power off MSC device, then click OK.  To abort this test, click ABORT"
+                }
+            }
         }
 
         # Keep track of which tests each controller has completed for each protocol.
@@ -270,17 +270,17 @@ class CVSuiteAutomation:
             "No Device Under Test"
         ]
 
-        # # Check if device is UASP
-        # if self.device.SCSIDevice == 'True':
-        #     self.test_list.update({21: {
-        #         "test_number": 21,
-        #         "name": "UASP Tests",
-        #         "dialog_strings": {
-        #             1: "WARNING: The following test might destroy ALL data on this disk.  To continue with all tests, click OK.  To abort this test, click ABORT",
-        #             2: "1) Please unplug and power off the device.",
-        #             3: "Is the device capable of detecting power loss states?"
-        #         }
-        #     }})
+        # Check if device is UASP
+        if self.device.SCSIDevice == 'True':
+            self.test_list.update({21: {
+                "test_number": 21,
+                "name": "UASP Tests",
+                "dialog_strings": {
+                    1: "WARNING: The following test might destroy ALL data on this disk.  To continue with all tests, click OK.  To abort this test, click ABORT",
+                    2: "1) Please unplug and power off the device.",
+                    3: "Is the device capable of detecting power loss states?"
+                }
+            }})
 
 
     def start_cv_suite(self):

@@ -19,7 +19,8 @@ def find_closest(target, options):
     return min(options, key=lambda x: abs(x - target))
 
 # Example list of 8 values in GB
-closest_values = [2, 4, 8, 16, 32, 64, 128, 256, 512]
+# closest_values = [2, 4, 8, 16, 32, 64, 128, 256, 512]
+closest_values = [16, 30, 60, 120, 240, 480, 1000, 2000]
 
 locator = win32com.client.Dispatch("WbemScripting.SWbemLocator")
 service = locator.ConnectServer(".", "root\\cimv2")

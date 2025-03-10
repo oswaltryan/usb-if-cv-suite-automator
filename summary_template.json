@@ -2,14 +2,14 @@
     "Windows 10": {
         "ASMedia": {
             "USB2": {
-                "CH 9 [USB 2 devices]": [],
+                "Chapter 9 Tests [USB 2 devices]": [],
                 "Connector Type Tests": [],
                 "Device Summary": [],
                 "MSC Tests": [],
                 "UASP Tests": []
             },
             "USB3": {
-                "CH 9 [USB 3 Gen X devices]": [],
+                "Chapter 9 Tests [USB 3 Gen X devices]": [],
                 "Connector Type Tests": [],
                 "Device Summary": [],
                 "MSC Tests": [],
@@ -18,14 +18,14 @@
         },
         "Intel": {
             "USB2": {
-                "CH 9 [USB 2 devices]": [],
+                "Chapter 9 Tests [USB 2 devices]": [],
                 "Connector Type Tests": [],
                 "Device Summary": [],
                 "MSC Tests": [],
                 "UASP Tests": []
             },
             "USB3": {
-                "CH 9 [USB 3 Gen X devices]": [],
+                "Chapter 9 Tests [USB 3 Gen X devices]": [],
                 "Connector Type Tests": [],
                 "Device Summary": [],
                 "MSC Tests": [],
@@ -36,14 +36,14 @@
     "Windows 11": {
         "ASMedia": {
             "USB2": {
-                "CH 9 [USB 2 devices]": [],
+                "Chapter 9 Tests [USB 2 devices]": [],
                 "Connector Type Tests": [],
                 "Device Summary": [],
                 "MSC Tests": [],
                 "UASP Tests": []
             },
             "USB3": {
-                "CH 9 [USB 3 Gen X devices]": [],
+                "Chapter 9 Tests [USB 3 Gen X devices]": [],
                 "Connector Type Tests": [],
                 "Device Summary": [],
                 "MSC Tests": [],
@@ -52,14 +52,14 @@
         },
         "Intel": {
             "USB2": {
-                "CH 9 [USB 2 devices]": [],
+                "Chapter 9 Tests [USB 2 devices]": [],
                 "Connector Type Tests": [],
                 "Device Summary": [],
                 "MSC Tests": [],
                 "UASP Tests": []
             },
             "USB3": {
-                "CH 9 [USB 3 Gen X devices]": [],
+                "Chapter 9 Tests [USB 3 Gen X devices]": [],
                 "Connector Type Tests": [],
                 "Device Summary": [],
                 "MSC Tests": [],
