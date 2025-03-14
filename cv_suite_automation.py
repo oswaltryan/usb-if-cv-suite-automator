@@ -43,6 +43,13 @@ from pywinauto.keyboard import send_keys
 from organizer import *
 from windows_usb import *
 from json_encoder import *
+from phidget_board import IOController
+
+controller = IOController()              # Initialize controller
+controller.turn_on('power')               # Turn on power (channel 13)
+controller.turn_on('usb3')                # Turn on USB3 (channel 14)
+input(f"Plug device in USB2/3 switchboard and unlock. Press enter to continue")
+time.sleep(5)
 
 
 class CVSuiteAutomation:
@@ -159,6 +166,7 @@ class CVSuiteAutomation:
           5) Reads and stores the test parameter from sys.argv.
           6) Prepares data structures for test management (test_list, completed_test_list, etc.).
         """
+
         # Attempt to locate a recognized Apricorn device (custom function).
         self.device = find_apricorn_device()
         if self.device is None:
@@ -243,14 +251,6 @@ class CVSuiteAutomation:
                 "test_number": 6,
                 "name": "Device Summary",
                 "dialog_strings": {}
-            },
-            17: {
-                "test_number": 17,
-                "name": "MSC Tests",
-                "dialog_strings": {
-                    1: "WARNING: The following test might destroy ALL data on this disk.  To continue with all tests, click OK.  To abort this test, click ABORT",
-                    2: "Disconnect and power off MSC device, then click OK.  To abort this test, click ABORT"
-                }
             }
         }
 
@@ -279,6 +279,23 @@ class CVSuiteAutomation:
                     1: "WARNING: The following test might destroy ALL data on this disk.  To continue with all tests, click OK.  To abort this test, click ABORT",
                     2: "1) Please unplug and power off the device.",
                     3: "Is the device capable of detecting power loss states?"
+                }
+            }})
+            self.test_list.update({17: {
+                "test_number": 17,
+                "name": "MSC Tests",
+                "dialog_strings": {
+                    1: "WARNING: The following test might destroy ALL data on this disk.  To continue with all tests, click OK.  To abort this test, click ABORT",
+                    2: "Disconnect and power off MSC device, then click OK.  To abort this test, click ABORT"
+                }
+            }})
+        else:
+            self.test_list.update({17: {
+                "test_number": 17,
+                "name": "MSC Tests",
+                "dialog_strings": {
+                    1: "WARNING: The following test might destroy ALL data on this disk.  To continue with all tests, click OK.  To abort this test, click ABORT",
+                    2: "Disconnect and power off MSC device, then click OK.  To abort this test, click ABORT"
                 }
             }})
 
@@ -445,7 +462,7 @@ class CVSuiteAutomation:
         self.test_summary[f'Windows {self.windows_version}'][self.usb_controller_name][f'USB{self.usb_protocol}'][self.test_list[self.current_test]['name']].extend(log_results)
 
         # Dump the updated summary to the JSON file so progress is tracked.
-        custom_json_dump(self.test_summary, self.destination_summary_json, indent=4)
+        custom_json_dump(self.test_summary, self.destination_summary_json)
 
         # Print results to console as well.
         print(f"--- {self.test_list[self.current_test]['name']}: {log_results}")
@@ -557,8 +574,10 @@ One argument is required for this program:
                     cv_suite.usb_protocol += 1  # Switch from USB2 -> USB3
                 else:
                     cv_suite.usb_protocol -= 1  # Switch from USB3 -> USB2
+                # input(f"Connect device USB{cv_suite.usb_protocol} and press Enter to continue")
+                controller.turn_off('usb3')               # Turn off USB3 (channel 14)
+                time.sleep(5)
                 protocol_switched = True
-                input(f"Connect device USB{cv_suite.usb_protocol} and press Enter to continue")
 
         # Close the CV Suite application.
         cv_suite.close_cv_suite()
@@ -571,9 +590,14 @@ One argument is required for this program:
             else:
                 cv_suite.usb_controller_name = "ASMedia"
                 cv_suite.usb_controller = 0
+            cv_suite.usb_protocol = 3
             controller_switched = True
 
             # Prompt the user to physically move the device to the other USB controller.
-            input(f"Connect device to {cv_suite.usb_controller_name} USB Controller, "
-                  f"USB{cv_suite.usb_protocol}, and press Enter to continue")
+            controller.turn_off('power')               # Turn off power (channel 13)
+            time.sleep(1)
+            controller.turn_on('usb3')
+            controller.turn_on('power')
+            input(f"Connect device to {cv_suite.usb_controller_name} USB Controller")
+
             protocol_switched = False

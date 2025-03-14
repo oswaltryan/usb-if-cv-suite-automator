@@ -1,6 +1,6 @@
-"""
+'''
 Python wrapper for usbview-cli console application.
-"""
+'''
 
 import xml.etree.ElementTree as XMLTree
 from dataclasses import dataclass
@@ -18,54 +18,40 @@ def find_closest(target, options):
     # Return the element in 'options' with the smallest absolute difference from target
     return min(options, key=lambda x: abs(x - target))
 
-# Example list of values in GB
-closest_values = [16, 30, 60, 120, 240, 480, 1000, 2000]
+# Example list of 8 values in GB
+# capacities = [2, 4, 8, 16, 32, 64, 128, 256, 512]
+capacities = [16, 30, 60, 120, 240, 480, 1000, 2000]
 
 locator = win32com.client.Dispatch("WbemScripting.SWbemLocator")
 service = locator.ConnectServer(".", "root\\cimv2")
 
-def list_usb_drives():
-    """
-    Returns a list of USB drives with their caption, size in GB,
-    and the closest matching size from a predefined list.
-    """
-    query = "SELECT * FROM Win32_DiskDrive WHERE InterfaceType='USB'"
-    usb_drives = service.ExecQuery(query)
-    drives_info = []
-    for drive in usb_drives:
-        # Check if 'Size' attribute exists
-        if getattr(drive, "Size", None) is None:
-            continue
-        try:
-            size_bytes = int(drive.Size)
-        except (TypeError, ValueError):
-            continue
-        size_gb = bytes_to_gb(size_bytes)
-        closest_match = find_closest(size_gb, closest_values)
-        drives_info.append({
-            "caption": drive.Caption,
-            "size_gb": size_gb,
-            "closest_match": closest_match,
-        })
-    return drives_info
+query = "SELECT * FROM Win32_DiskDrive WHERE InterfaceType='USB'"
+usb_drives = service.ExecQuery(query)
 
-# --- The remainder of the file contains functions for usbview-cli integration and Apricorn device detection ---
+for drive in usb_drives:
+    size_bytes = int(drive.Size)
+    size_gb = bytes_to_gb(size_bytes)
+    closest_match = find_closest(size_gb, capacities)
+    # print(f"Device: {drive.Caption}")
+    # print(f"Size: {size_gb:.2f} GB")
+    # print(f"Closest match from list: {closest_match} GB")
+
 
 # Define the path to the usbview-cli executable
 EXE = r"C:\Users\itadmin\Desktop\cv_suite_testing\usbview-cli-0.1.0\usbview-cli.exe"
 
 class UsbTreeError(Exception):
-    """ Custom exception for USB tree errors """
+    ''' Custom exception for USB tree errors '''
     def __init__(self, msg):
         self.msg = msg
 
 class ExtractionError(Exception):
-    """ Exception raised when extraction of device info fails """
+    ''' Exception raised when extraction of device info fails '''
     pass
 
 @dataclass
 class WinUsbDeviceInfo:
-    """ Dataclass representing a USB device information structure """
+    ''' Dataclass representing a USB device information structure '''
     idProduct: str
     idVendor: str
     bcdDevice: str
@@ -78,12 +64,12 @@ class WinUsbDeviceInfo:
     usb_protocol: str
     usbController: str = ""  # Stores controller name
     SCSIDevice: str = ""     # Stores UASP status (True/False as string)
-    driveSize: str = ""      # Stores the device volume size (rounded)
+    driveSize: str = ""      # Stores the device volume size rounded to the nearest multiple of significance
 
 def list_devices_info(vids: Sequence[str] = []) -> list[WinUsbDeviceInfo]:
-    """
+    '''
     Retrieves a list of USB devices, optionally filtered by vendor IDs.
-    """
+    '''
     devs = []
     for el in get_usb_tree().iterfind('.//UsbDevice'):
         try:
@@ -100,9 +86,9 @@ def list_devices_info(vids: Sequence[str] = []) -> list[WinUsbDeviceInfo]:
     return devs
 
 def get_usb_tree() -> XMLTree.Element:
-    """
+    '''
     Retrieves the USB tree as an XML element.
-    """
+    '''
     cmd = [str(EXE)]
     try:
         result = subprocess.run(
@@ -124,9 +110,9 @@ def get_usb_tree() -> XMLTree.Element:
         raise UsbTreeError(f"Error parsing usbtree-cli output: {e}")
 
 def _extract_device_info(el: XMLTree.Element) -> WinUsbDeviceInfo:
-    """
+    '''
     Extracts device information from an XML element.
-    """
+    '''
     device_id, usb_protocol = el.get('DeviceId'), el.get('UsbProtocol')
     dscptr = el.find('./ConnectionInfo/ConnectionInfoStruct/DeviceDescriptor')
     
@@ -153,30 +139,30 @@ def _extract_device_info(el: XMLTree.Element) -> WinUsbDeviceInfo:
     )
 
 def _find_txt_or_blank(el: XMLTree.Element, xpath: str) -> str:
-    """ Retrieves text from an XML element or returns an empty string """
+    ''' Retrieves text from an XML element or returns an empty string '''
     res = el.find(xpath)
     return _make_blank_if_missing(res.text if res is not None else '')
 
 def _make_blank_if_missing(txt: str) -> str:
-    """ Converts error indicators into an empty string """
+    ''' Converts error indicators into an empty string '''
     return '' if txt.startswith("ERROR") or txt == '?' else txt
 
 def _parse_bcdUSB(bcdUSB: str) -> str:
-    """ Converts a USB version string from hexadecimal """
+    ''' Converts a USB version string from hexadecimal '''
     hex_s = _to_hex_s(bcdUSB)
     return f"{int(hex_s[0:2])}.{hex_s[2:]}"
 
 def _to_hex_s(int_str: str) -> str:
-    """ Converts an integer string to a zero-padded hexadecimal string """
+    ''' Converts an integer string to a zero-padded hexadecimal string '''
     try:
         return f"{int(int_str):0>4x}"
     except ValueError:
         raise ExtractionError()
 
 def find_apricorn_device():
-    """
+    '''
     Searches for an Apricorn device among USB devices.
-    """
+    '''
     output = list_devices_info()
     
     for item in output:
@@ -201,17 +187,13 @@ def find_apricorn_device():
         item.usbController = result.stdout.strip()
         
         if item.idVendor == '0984':
-            # For demonstration, assign driveSize from the first USB drive (if any)
-            drives = list_usb_drives()
-            if drives:
-                item.driveSize = drives[0]['closest_match']
+            item.driveSize = closest_match
             if 'Intel' in item.usbController:
                 item.usbController = 'Intel'
             elif 'ASMedia' in item.usbController:
                 item.usbController = 'ASMedia'
             return item
 
-if __name__ == '__main__':
-    drives = list_usb_drives()
-    for d in drives:
-        print(d)
+## Example Usage
+info = find_apricorn_device()
+pprint(info)
