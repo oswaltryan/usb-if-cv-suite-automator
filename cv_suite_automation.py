@@ -36,12 +36,13 @@ import shutil
 import platform
 
 from contextlib import redirect_stdout
+from pprint import pprint
 from pywinauto import Application
 from pywinauto.keyboard import send_keys
 
 # These are local imports in your environment:
 from organizer import *
-from windows_usb import *
+from usb-tool import *
 from json_encoder import *
 from phidget_board import IOController
 
@@ -172,6 +173,9 @@ class CVSuiteAutomation:
         if self.device is None:
             print("No device found.")
             sys.exit(1)  # Exit if no device is found.
+        else:
+            pprint(self.device)
+            input(f"Check devices:")
 
         # Use the device’s USB controller name to determine the integer index for CV Suite’s UI.
         self.usb_controller_name = self.device.usbController
@@ -225,8 +229,7 @@ class CVSuiteAutomation:
                 "name": "Chapter 9 Tests [USB 2 devices]",
                 "dialog_strings": {
                     1: "Please run Connector Type Tests on this device.",
-                    2: "Please run MSC/BOT Tests on this device.",
-                    3: "Please run MSC/UASP Tests on this device."
+                    2: "Please run MSC/BOT Tests on this device."
                 }
             },
             2: {
@@ -235,8 +238,7 @@ class CVSuiteAutomation:
                 "dialog_strings": {
                     1: "Please run Chapter 9 Tests on this device as a USB 2.0 device at all supported USB 2.0 speeds.",
                     2: "Please run Connector Type Tests on this device.",
-                    3: "Please run MSC/BOT Tests on this device.",
-                    4: "Please run MSC/UASP Tests on this device."
+                    3: "Please run MSC/BOT Tests on this device."
                 }
             },
             3: {
@@ -272,6 +274,19 @@ class CVSuiteAutomation:
 
         # Check if device is UASP
         if self.device.SCSIDevice == 'True':
+            self.test_list[1].update({
+                "dialog_strings": {
+                    1: "Please run Connector Type Tests on this device.",
+                    2: "Please run MSC/BOT Tests on this device.",
+                    3: "Please run MSC/UASP Tests on this device."}
+            })
+            self.test_list[2].update({
+                "dialog_strings": {
+                    1: "Please run Chapter 9 Tests on this device as a USB 2.0 device at all supported USB 2.0 speeds.",
+                    2: "Please run Connector Type Tests on this device.",
+                    3: "Please run MSC/BOT Tests on this device.",
+                    4: "Please run MSC/UASP Tests on this device."
+            }})
             self.test_list.update({21: {
                 "test_number": 21,
                 "name": "UASP Tests",
