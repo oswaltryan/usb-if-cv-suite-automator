@@ -42,7 +42,7 @@ from pywinauto.keyboard import send_keys
 
 # These are local imports in your environment:
 from organizer import *
-from usb-tool import *
+from usb_tool import find_apricorn_device
 from json_encoder import *
 from phidget_board import IOController
 
@@ -174,8 +174,13 @@ class CVSuiteAutomation:
             print("No device found.")
             sys.exit(1)  # Exit if no device is found.
         else:
-            pprint(self.device)
-            input(f"Check devices:")
+            for dut in range(len(self.device)):
+                if self.device[dut].idProduct == '0351':
+                    self.device.pop(dut)
+            if len(self.device) > 1:
+                raise Exception("Too many Apricorn devices connected")
+            else:
+                self.device = self.device[0]
 
         # Use the device’s USB controller name to determine the integer index for CV Suite’s UI.
         self.usb_controller_name = self.device.usbController
@@ -199,7 +204,7 @@ class CVSuiteAutomation:
         self.test_description_input = sys.argv[1] + " " + self.device.iProduct
 
         # bcdUSB might look like "3.2" => self.usb_protocol = 3
-        self.usb_protocol = int(self.device.bcdUSB[0])
+        self.usb_protocol = int(self.device.bcdUSB)
 
         # Build the paths for the source/destination of the test results.
         self.source_reports_dir = (
@@ -211,7 +216,7 @@ class CVSuiteAutomation:
         self.destination_drive = 'Z:\\USB-IF Results'  # Adjust if needed.
         self.destination_reports_dir = (
             f'{self.destination_drive}\\{self.test_description_input}\\'
-            f'v{self.device.bcdDevice}\\{self.device.driveSize}GB\\'
+            f'v{self.device.bcdDevice}\\{self.device.driveSizeGB}GB\\'
             f'{self.test_datetime}\\Windows {self.windows_version}'
         )
         self.destination_summary_json = f'{self.destination_reports_dir}\\summary.json'
