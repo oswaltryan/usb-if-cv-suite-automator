@@ -26,6 +26,7 @@ Example:
     python cv_suite_automation.py 3861EN-FL
 """
 
+import datetime
 import json
 import os
 import io
@@ -157,17 +158,10 @@ class CVSuiteAutomation:
 
     def __init__(self):
         """
-        Initializes the CVSuiteAutomation class with user inputs and default configurations.
-
-        This method:
-          1) Detects an attached Apricorn device (via find_apricorn_device).
-          2) Infers the 'usb_controller_name' and 'usb_controller' from the device.
-          3) Determines the Windows version and sets 'windows_user_name'.
-          4) Builds file paths for storing CV Suite results.
-          5) Reads and stores the test parameter from sys.argv.
-          6) Prepares data structures for test management (test_list, completed_test_list, etc.).
+        Initializes the CVSuiteAutomation class by detecting the device,
+        OS, and automatically finding or creating a test session.
         """
-
+        # --- Stage 1: Basic device and environment detection ---
         # Attempt to locate a recognized Apricorn device (custom function).
         self.device = find_apricorn_device()
         if self.device is None:
@@ -196,9 +190,6 @@ class CVSuiteAutomation:
         elif self.windows_version == 11:
             self.windows_user_name = "itadmin"
 
-        # Create a timestamp for test-labelling in directories.
-        self.test_datetime = time.strftime("%Y-%m-%d %H%M", time.localtime())
-
         # sys.argv[1] is expected to be the "bridge controller chipset" string.
         # We also append the device model name (self.device.iProduct).
         self.test_description_input = sys.argv[1] + " " + self.device.iProduct
@@ -206,28 +197,36 @@ class CVSuiteAutomation:
         # bcdUSB might look like "3.2" => self.usb_protocol = 3
         self.usb_protocol = int(self.device.bcdUSB)
 
-        # Build the paths for the source/destination of the test results.
-        self.source_reports_dir = (
-            f'C:\\Users\\{self.windows_user_name}\\Documents\\USB-IF Test Suite\\CV Reports\\USB3CV'
-        )
+        # Define base paths needed for the session discovery logic
+        self.destination_drive = 'Z:\\USB-IF Results'
         self.source_summary_json = (
             f'C:\\Users\\{self.windows_user_name}\\Desktop\\cv_suite_testing\\summary_template.json'
         )
-        self.destination_drive = 'Z:\\USB-IF Results'  # Adjust if needed.
-        self.destination_reports_dir = (
+
+        # --- Stage 2: Find or create the test session using our new helper method ---
+        self.test_datetime = self._find_or_create_session()
+
+        # --- Stage 3: Define all paths based on the discovered or created session ID ---
+        self.session_dir = (
             f'{self.destination_drive}\\{self.test_description_input}\\'
             f'v{self.device.bcdDevice}\\{self.device.driveSizeGB}GB\\'
-            f'{self.test_datetime}\\Windows {self.windows_version}'
+            f'{self.test_datetime}'
         )
-        self.destination_summary_json = f'{self.destination_reports_dir}\\summary.json'
+        self.destination_reports_dir = f'{self.session_dir}\\Windows {self.windows_version}'
+        self.destination_summary_json = f'{self.session_dir}\\summary.json'
+        
+        self.source_reports_dir = (
+            f'C:\\Users\\{self.windows_user_name}\\Documents\\USB-IF Test Suite\\CV Reports\\USB3CV'
+        )
 
+        # --- Stage 4: Initialize application and test state variables (unchanged from original) ---
         # Initialize pywinauto objects
         self.app = None
         self.main_window = None
         self.log_window = None
         self.current_test = None
 
-        # List of tests we might execute. For brevity, only test #6 is shown below.
+        # List of tests we might execute.
         self.test_list = {
             1: {
                 "test_number": 1,
@@ -277,7 +276,7 @@ class CVSuiteAutomation:
             "No Device Under Test"
         ]
 
-        # Check if device is UASP
+        # Check if device is UASP and update test list accordingly
         if self.device.SCSIDevice == 'True':
             self.test_list[1].update({
                 "dialog_strings": {
@@ -318,6 +317,100 @@ class CVSuiteAutomation:
                     2: "Disconnect and power off MSC device, then click OK.  To abort this test, click ABORT"
                 }
             }})
+
+    def _is_os_section_empty(self, summary_data: dict, os_key: str) -> bool:
+        """Checks if a given OS section in the summary data is empty."""
+        try:
+            os_data = summary_data[os_key]
+            for controller in os_data.values():
+                for protocol in controller.values():
+                    for test_results in protocol.values():
+                        if test_results:  # An empty list is False, a non-empty list is True
+                            return False
+        except KeyError:
+            # If the OS key doesn't even exist, it's definitely "empty"
+            return True
+        return True
+
+    def _find_or_create_session(self):
+        """
+        Finds a session to latch onto or creates a new one based on strict rules.
+
+        - Latching is ONLY allowed if the most recent session was started on the
+          *other* OS, is incomplete, and was created within a short time window.
+        - In ALL other cases, a new session is created.
+        - No data is ever overwritten or deleted.
+
+        Returns:
+            str: The session timestamp (e.g., "2023-10-27 1430").
+        """
+        # --- Latching is only allowed for sessions newer than this (in minutes) ---
+        # This window should be just long enough to allow for the automated
+        # OS reboot and script startup process.
+        LATCH_WINDOW_MINUTES = 120  # 2 hours
+
+        base_device_dir = (
+            f'{self.destination_drive}\\{self.test_description_input}\\'
+            f'v{self.device.bcdDevice}\\{self.device.driveSizeGB}GB'
+        )
+        os.makedirs(base_device_dir, exist_ok=True)
+
+        try:
+            # Get existing session folders, sorted with the newest one first.
+            session_folders = sorted(
+                [d for d in os.listdir(base_device_dir) if os.path.isdir(os.path.join(base_device_dir, d))],
+                reverse=True
+            )
+        except FileNotFoundError:
+            session_folders = []
+
+        # Only check the single most recent session folder for a potential latch.
+        if session_folders:
+            latest_session_id = session_folders[0]
+            
+            # 1. Check if the session is a valid timestamp
+            try:
+                session_time = datetime.datetime.strptime(latest_session_id, "%Y-%m-%d %H%M")
+                time_since_session = datetime.datetime.now() - session_time
+            except ValueError:
+                # If the folder name isn't a timestamp, it can't be latched.
+                latest_session_id = None
+
+            if latest_session_id:
+                # 2. Check if the session is within the allowed time window
+                if time_since_session.total_seconds() < (LATCH_WINDOW_MINUTES * 60):
+                    summary_path = os.path.join(base_device_dir, latest_session_id, 'summary.json')
+                    
+                    if os.path.exists(summary_path):
+                        try:
+                            with open(summary_path, 'r') as f:
+                                summary_data = json.load(f)
+
+                            current_os_key = f'Windows {self.windows_version}'
+                            other_os_key = f'Windows {10 if self.windows_version == 11 else 11}'
+
+                            is_current_empty = self._is_os_section_empty(summary_data, current_os_key)
+                            is_other_empty = self._is_os_section_empty(summary_data, other_os_key)
+
+                            # 3. Check if the session state is correct for latching
+                            # (Current OS section must be empty, other OS must not be)
+                            if is_current_empty and not is_other_empty:
+                                print(f"Found recent session '{latest_session_id}' from other OS. Latching onto it.")
+                                return latest_session_id
+
+                        except (json.JSONDecodeError, IOError):
+                            print(f"Warning: Could not read or parse summary for session '{latest_session_id}'.")
+
+        # If we reach this point, no valid session was found to latch onto.
+        # Create a new session.
+        print("No suitable recent session to latch onto. Creating a new test session.")
+        new_session_id = time.strftime("%Y-%m-%d %H%M", time.localtime())
+        new_session_path = os.path.join(base_device_dir, new_session_id)
+        os.makedirs(new_session_path, exist_ok=True)
+        destination_summary_json = os.path.join(new_session_path, 'summary.json')
+        shutil.copy(src=self.source_summary_json, dst=destination_summary_json)
+        
+        return new_session_id
 
 
     def start_cv_suite(self):
@@ -507,9 +600,10 @@ if __name__ == "__main__":
     Main entry point of the CV Suite automation script.
 
     - Validates that one argument is passed (bridge controller chipset).
-    - Creates a CVSuiteAutomation instance and orchestrates the test flows
-      for USB controllers (e.g., ASMedia / Intel) under both USB protocols
-      (2 and 3).
+    - Creates a CVSuiteAutomation instance which automatically discovers
+      and links multi-OS test sessions.
+    - Orchestrates the test flows for USB controllers (e.g., ASMedia / Intel)
+      under both USB protocols (2 and 3).
     - Copies or merges test result files from the default CV Suite directory
       to user-defined locations.
     - Prompts the user at specific times to physically reconnect the device
@@ -530,8 +624,15 @@ One argument is required for this program:
         """)
         sys.exit(1)
 
-    # Create an automation object.
+    # Create an automation object. The __init__ method now handles all session logic.
     cv_suite = CVSuiteAutomation()
+
+    # Load the summary data for the current session into the instance.
+    with open(cv_suite.destination_summary_json) as jsonFile:
+        cv_suite.test_summary = json.load(jsonFile)
+    
+    # Ensure the OS-specific reports directory exists for this run.
+    os.makedirs(cv_suite.destination_reports_dir, exist_ok=True)
 
     # Attempt to run the test suite across both controllers (ASMedia and Intel).
     controller_switched = False
@@ -540,18 +641,9 @@ One argument is required for this program:
     for i in range(2):
         print(f"- {cv_suite.usb_controller_name}")
 
-        # Start the CV Suite, select the current controller, and create the reports directory.
+        # Start the CV Suite, select the current controller.
         cv_suite.start_cv_suite()
-        if not os.path.exists(cv_suite.destination_reports_dir):
-            os.makedirs(cv_suite.destination_reports_dir)
-
-            # Copy the template summary JSON into the new directory.
-            shutil.copy(src=cv_suite.source_summary_json, dst=cv_suite.destination_summary_json)
-
-            # Load it into our test_summary structure.
-            with open(cv_suite.destination_summary_json) as jsonFile:
-                cv_suite.test_summary = json.load(jsonFile)
-
+        
         # We manage USB 2 vs. USB 3 protocols in another loop.
         protocol_switched = False
         for _ in cv_suite.completed_test_list[cv_suite.usb_controller_name]:
@@ -594,7 +686,6 @@ One argument is required for this program:
                     cv_suite.usb_protocol += 1  # Switch from USB2 -> USB3
                 else:
                     cv_suite.usb_protocol -= 1  # Switch from USB3 -> USB2
-                # input(f"Connect device USB{cv_suite.usb_protocol} and press Enter to continue")
                 controller.turn_off('usb3')               # Turn off USB3 (channel 14)
                 time.sleep(5)
                 protocol_switched = True
@@ -621,3 +712,24 @@ One argument is required for this program:
             input(f"Connect device to {cv_suite.usb_controller_name} USB Controller")
 
             protocol_switched = False
+
+    # After all tests for the current OS are done, check if the whole session is complete.
+    # We do this by checking if the *other* OS's section in the summary file is still empty.
+    other_os_key = f'Windows {10 if cv_suite.windows_version == 11 else 11}'
+    is_session_now_complete = not cv_suite._is_os_section_empty(cv_suite.test_summary, other_os_key)
+
+    if not is_session_now_complete:
+        print("\n" + "="*70)
+        print(f"OPERATING SYSTEM (Windows {cv_suite.windows_version}) TEST COMPLETE.")
+        print("To finish the test session, please do the following:")
+        print("1. Reboot into the other operating system.")
+        print("2. Run the script again with the same command:")
+        print(f"   python cv_suite_automation.py \"{sys.argv[1]}\"")
+        print("The script will automatically find and continue this session.")
+        print("="*70 + "\n")
+    else:
+        print("\n" + "="*70)
+        print("BOTH OPERATING SYSTEMS HAVE BEEN TESTED.")
+        print(f"Test session '{cv_suite.test_datetime}' is now complete.")
+        print(f"Final results are in: {cv_suite.destination_summary_json}")
+        print("="*70 + "\n")
