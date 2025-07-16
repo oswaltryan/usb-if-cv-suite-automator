@@ -17,12 +17,13 @@ $currentDesc = ($currentInfo |
     Where-Object { $_ -match '^\s*description\s+' } |
     Select-Object -First 1) -replace '^\s*description\s+','' -replace '\s+$',''
 
-# ---------- 2. pick the other OS ---------------------------
-switch -Regex ($currentDesc) {
-    'Windows\s*10' { $targetRegex = 'Windows\s*11' }
-    'Windows\s*11' { $targetRegex = 'Windows\s*10' }
+# ---------- 2. pick the other OS (This section is now more robust) ----
+# Use wildcard matching to handle variations like "Pro", "Enterprise", etc.
+switch -Wildcard ($currentDesc) {
+    '*Windows 10*' { $targetPattern = '*Windows 11*' }
+    '*Windows 11*' { $targetPattern = '*Windows 10*' }
     default {
-        Write-Error "Can't decide which OS to toggle to (description = '$currentDesc')."
+        Write-Error "Can't decide which OS to toggle to (current description = '$currentDesc'). The script only supports toggling between Windows 10 and 11."
         exit 1
     }
 }
@@ -30,24 +31,27 @@ switch -Regex ($currentDesc) {
 # ---------- 3. locate that loader’s GUID -------------------
 $bcdLines   = & bcdedit /enum all /v
 [string]$targetGuid = $null
+[string]$targetDesc = $null
 
 for ($i = 0; $i -lt $bcdLines.Count; $i++) {
     if ($bcdLines[$i] -match '^\s*identifier\s+\{([0-9a-fA-F\-]+)\}') {
         $guid = '{' + $Matches[1] + '}'
     }
-    if ($bcdLines[$i] -match "^\s*description\s+$targetRegex") {
+    # Check if the description line matches our new wildcard pattern
+    if ($bcdLines[$i] -match "^\s*description\s+(.*)" -and ($Matches[1] -like $targetPattern)) {
         $targetGuid = $guid
+        $targetDesc = $Matches[1].Trim()
         break
     }
 }
 
 if (-not $targetGuid) {
-    Write-Error "Couldn't find a loader whose description matches '$targetRegex'."
+    Write-Error "Couldn't find a loader whose description matches the pattern '$targetPattern'."
     exit 1
 }
 
 # ---------- 4. queue it for the very next boot -------------
-Write-Host "Current OS   : $currentDesc  ($currentGuid)"
-Write-Host "Next boot --> : $targetRegex ($targetGuid)"
+Write-Host "Current OS   : $currentDesc ($currentGuid)"
+Write-Host "Next boot --> : $targetDesc ($targetGuid)"
 & bcdedit /bootsequence "$targetGuid"
 & shutdown /r /t 0
