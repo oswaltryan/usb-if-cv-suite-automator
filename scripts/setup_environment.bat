@@ -9,7 +9,13 @@
 :: This script only needs to be run once per OS.
 :: =========================================================================
 
-set "PROJECT_ROOT=%~dp0.."
+:: --- SCRIPT SETUP ---
+:: vvvvvvvvvvvvvvvvvvvv THE FIX IS HERE vvvvvvvvvvvvvvvvvvvv
+:: This line resolves the relative ".." path into a clean, absolute path
+:: that 'pip' will correctly accept.
+for %%I in ("%~dp0\..") do set "PROJECT_ROOT=%%~fI"
+:: ^^^^^^^^^^^^^^^^^^^^ THE FIX IS HERE ^^^^^^^^^^^^^^^^^^^^
+
 set "VENV_PATH=%PROJECT_ROOT%\venv"
 set "WHEELS_PATH=%PROJECT_ROOT%\wheels"
 set "REQUIREMENTS_FILE=%PROJECT_ROOT%\requirements.txt"
