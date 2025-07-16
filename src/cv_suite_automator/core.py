@@ -42,9 +42,9 @@ from pywinauto import Application
 from pywinauto.keyboard import send_keys
 
 # These are local imports in your environment:
-from src.hardware import IOController
-from src.usb_tool.usb_tool.cross_usb import main as find_apricorn_device
-from src.utils import *
+from .hardware import IOController
+from .usb_tool.usb_tool.cross_usb import main as find_apricorn_device
+from .utils import *
 
 
 controller = IOController()              # Initialize controller
