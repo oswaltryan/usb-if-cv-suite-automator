@@ -1,4 +1,0 @@
-libusb==1.0.27.post4
-pywin32==309
-setuptools==75.8.0
-pygments==2.19.1
