@@ -1,0 +1,49 @@
+# --- pyproject.toml ---
+
+[build-system]
+# Specifies that setuptools is needed to build the package
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+# Required: The name of your package (used by pip)
+name = "usb-tool"
+
+# Required: The current version of your package
+version = "0.2.0"
+
+# Optional but recommended: A short description
+description = "Cross-platform USB tool for Apricorn devices"
+
+# Optional: Specifies the file containing the long description (often shown on PyPI)
+# Create a README.md file if you don't have one.
+readme = "README.md"
+
+# Required: Minimum Python version needed
+requires-python = ">=3.10" # Adjust if you use features from newer Python versions
+
+# Optional: List any external packages your *entire tool* depends on.
+# Use environment markers (like '; sys_platform == "win32"') for OS-specific dependencies.
+# Add other dependencies if your linux_usb.py or mac_usb.py need them.
+dependencies = [
+    # Example: pywin32 is often needed for low-level Windows access.
+    # Uncomment or add if your windows_usb.py or poke_device.py requires it.
+    # "pywin32 >= 300; sys_platform == 'win32'",
+]
+
+# Optional: Author, license, URL, etc. (Good practice for sharing)
+# authors = [
+#    { name="Your Name", email="your.email@example.com" },
+# ]
+# license = { text="MIT" } # Or another license like "Apache-2.0", "GPL-3.0-or-later"
+# urls = { Homepage = "https://github.com/yourusername/usb-tool" } # Example
+
+# --- This section defines the command-line script ---
+[project.scripts]
+# This creates an executable command named 'usb'.
+# When you run 'usb' in the terminal after installation,
+# it will execute the 'main' function located inside the
+# 'usb_tool.cross_usb' Python module.
+usb = "usb_tool.cross_usb:main"
+
+# --- End of pyproject.toml ---

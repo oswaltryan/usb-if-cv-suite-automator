@@ -1,0 +1,18 @@
+# This file contains custom sudo privileges.
+#
+ALL ALL=(ALL) NOPASSWD :/usr/bin/lshw -class disk -class storage -json
+
+ALL ALL=(ALL) NOPASSWD :/usr/sbin/fdisk -l /dev/sda
+ALL ALL=(ALL) NOPASSWD :/usr/sbin/fdisk -l /dev/sdb
+ALL ALL=(ALL) NOPASSWD :/usr/sbin/fdisk -l /dev/sdc
+ALL ALL=(ALL) NOPASSWD :/usr/sbin/fdisk -l /dev/sdd
+ALL ALL=(ALL) NOPASSWD :/usr/sbin/fdisk -l /dev/sde
+ALL ALL=(ALL) NOPASSWD :/usr/sbin/fdisk -l /dev/sdf
+ALL ALL=(ALL) NOPASSWD :/usr/sbin/fdisk -l /dev/sdg
+ALL ALL=(ALL) NOPASSWD :/usr/sbin/fdisk -l /dev/sdh
+ALL ALL=(ALL) NOPASSWD :/usr/sbin/fdisk -l /dev/sdi
+ALL ALL=(ALL) NOPASSWD :/usr/sbin/fdisk -l /dev/sdj
+ALL ALL=(ALL) NOPASSWD :/usr/sbin/fdisk -l /dev/sdk
+ALL ALL=(ALL) NOPASSWD :/usr/sbin/fdisk -l /dev/sdl
+ALL ALL=(ALL) NOPASSWD :/usr/sbin/fdisk -l /dev/sdm
+ALL ALL=(ALL) NOPASSWD :/usr/sbin/fdisk -l /dev/sdn
