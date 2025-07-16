@@ -47,11 +47,11 @@ cv_suite_testing/
 
 The following steps must be performed on **both** the Windows 10 and Windows 11 partitions to prepare the test environment.
 
-1.  **Clone the Repository:**
-    ```bash
-    git clone <your-repo-url> C:\cv_suite_testing
-    cd C:\cv_suite_testing
-    ```
+2.  **Setup the Python Environment (Offline):**
+    A script is provided to create an isolated Python environment and install all necessary packages from the local `wheels` folder. This does not require an internet connection.
+    ```powershell
+    # Run the environment setup script
+    .\scripts\setup
 
 2.  **Create Virtual Environment and Install Dependencies:**
     This process creates an isolated environment for the project and installs all necessary packages.
@@ -69,7 +69,7 @@ The following steps must be performed on **both** the Windows 10 and Windows 11 
     deactivate
     ```
 
-3.  **System Configuration & Agent Deployment:**
+3.  **Configure System & Deploy Agent:**
     You must configure the system to recognize the results drive and deploy the autostart script. You can do this manually or with the provided setup script. Choose one method.
 
     ---
@@ -88,7 +88,7 @@ The following steps must be performed on **both** the Windows 10 and Windows 11 
 
     1.  **Prepare External Drive:** Plug in your external results drive and ensure Windows has assigned it the letter **`Z:`**.
     2.  **Run the Setup Script:** Right-click `C:\cv_suite_testing\scripts\system_setup.bat` and select **"Run as administrator"**. The script will verify that the `Z:` drive exists and deploy the autostart agent shortcut for you.
-    3.  **Disable Windows Login:** The script **cannot** perform this step. You must still manually disable the password requirement for login for the cross-OS automation to work.
+    3.  **Disable Windows Login:** The script **cannot** perform this step. You must still manually disable the password requirement for login.
     ---
 
 ## Workflow & Usage
@@ -97,21 +97,16 @@ The project provides two distinct workflows for running tests. You do not need t
 
 ### Fully Automated Workflow (Recommended)
 
-Use this method to run the complete test suite across both operating systems.
-
 1.  **Connect the DUT:** Plug the **unlocked** Device Under Test into the USB switchboard port corresponding to the first controller to be tested (e.g., ASMedia).
 
 2.  **Initiate the Session:** Open a Command Prompt or PowerShell and run the **`start_cv_suite_session.bat`** script. Pass the bridge controller chipset as an argument.
     ```powershell
     C:\cv_suite_testing\scripts\start_cv_suite_session.bat "3861EN-FL"
     ```
-    This script will run the tests on the current OS, and then automatically reboot the machine to continue.
 
 3.  **Perform the Physical Controller Switch:**
     The automation will pause **once per operating system** and prompt you in the console:
     > **REQUIRED INTERVENTION:** When you see the prompt `Connect device to <Other> USB Controller`, you must physically move the DUT's cable to the other controller's port on the switchboard and press **Enter** to continue.
-
-4.  **Completion:** The process finishes automatically after the tests on the second OS are complete. Final results are stored on the `Z:` drive.
 
 ### Manual Workflow (Single OS Spot-Check)
 
@@ -126,4 +121,4 @@ Use this method for debugging or running tests on a single OS without triggering
 
 ## Known Limitations
 
-The primary manual step in the automated workflow is the physical switching of the DUT between host controller ports. To achieve true "lights-out" automation, this would need to be replaced by a **programmable USB A/B switch** (e.g., from vendors like Acroname or MCCI) that can be controlled by the Python script.
+The primary manual step in the automated workflow is the physical switching of the DUT between host controller ports. This will be eliminated by integrating a programmable Acroname USB hub in a future update.
