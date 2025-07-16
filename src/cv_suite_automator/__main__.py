@@ -1,4 +1,4 @@
-from core import *
+from .core import *
 
 """
 Main entry point of the CV Suite automation script.
