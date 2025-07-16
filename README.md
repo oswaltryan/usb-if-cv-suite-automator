@@ -94,7 +94,7 @@ Use this method to run the complete test suite across both operating systems.
 
 2.  **Initiate the Session:** Open a Command Prompt or PowerShell and run the **`start_cv_suite_session.bat`** script. This is the main entry point for a full test. It works by calling `run_automation.bat` to execute the tests, and then calls `toggle_windows_version.ps1` to reboot.
     ```powershell
-    C:\cv_suite_testing\scripts\start_cv_suite_session.bat "3861EN-FL"
+    C:\cv_suite_testing\scripts\start_cv_suite_session.bat "{usb_bridge_chipset}"
     ```
 
 3.  **Perform the Physical Controller Switch:**
@@ -102,12 +102,13 @@ Use this method to run the complete test suite across both operating systems.
     > **REQUIRED INTERVENTION:** When you see the prompt `Connect device to <Other> USB Controller`, you must physically move the DUT's cable to the other controller's port on the switchboard and press **Enter** to continue.
 
 ### Manual Workflow (Single OS Spot-Check)
-Use this method for debugging or running tests on a single OS without triggering a reboot.
+Use this for debugging or running tests on a single OS without triggering a reboot.
 
 1.  **Connect the DUT:** Plug the unlocked device into the desired controller port.
-2.  **Run the Launcher Script:** From a Command Prompt or PowerShell, run the **`run_automation.bat`** script. This script's primary job is to activate the virtual environment and execute the Python code.
+2.  **Run the Python Module Directly:** From a Command Prompt or PowerShell in the project's root directory, run the `cv_suite_automator` package as a module, passing the chipset as an argument.
     ```powershell
-    C:\cv_suite_testing\scripts\run_automation.bat "3861EN-FL"
+    # Run this from the C:\cv_suite_testing directory
+    python cv_suite_automator "{usb_bridge_chipset}"
     ```
 
 ## Known Limitations

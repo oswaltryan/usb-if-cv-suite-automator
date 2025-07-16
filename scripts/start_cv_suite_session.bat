@@ -3,8 +3,6 @@
 :: start_cv_suite_session.bat
 :: -------------------------------------------------------------------------
 :: Kicks off the full, two-OS test automation.
-:: This script creates a flag file, calls the main runner, and then
-:: initiates a reboot to the other OS.
 :: =========================================================================
 
 :: --- 1. Validate Input ---
@@ -31,10 +29,8 @@ echo      Flag file created at: %FLAG_FILE%
 echo.
 
 echo [2/3] Starting test suite on the current OS...
-echo      This will now be handled by run_automation.bat
-:: Use "call" to ensure control returns to this script when the other finishes.
-:: %~dp0 ensures we find the script in the same directory as this one.
-call "%~dp0run_automation.bat" %CHIPSET_ARG%
+:: Directly execute the Python module, forwarding all arguments
+python -m cv_suite_automator %CHIPSET_ARG%
 echo.
 echo      Current OS tests are complete.
 echo.
