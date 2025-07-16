@@ -1,2 +1,0 @@
-[console_scripts]
-run-cv-automation = cv_suite_automator.__main__:main

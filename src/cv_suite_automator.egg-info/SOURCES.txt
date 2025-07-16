@@ -1,8 +1,0 @@
-README.md
-setup.py
-src/cv_suite_automator.egg-info/PKG-INFO
-src/cv_suite_automator.egg-info/SOURCES.txt
-src/cv_suite_automator.egg-info/dependency_links.txt
-src/cv_suite_automator.egg-info/entry_points.txt
-src/cv_suite_automator.egg-info/requires.txt
-src/cv_suite_automator.egg-info/top_level.txt
