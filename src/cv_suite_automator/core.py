@@ -43,7 +43,7 @@ from pywinauto.keyboard import send_keys
 
 # These are local imports in your environment:
 from .hardware import IOController
-from usb_tool.cross_usb import main as find_apricorn_device
+from usb_tool import find_apricorn_device
 from .utils import *
 
 
@@ -167,14 +167,21 @@ class CVSuiteAutomation:
         if self.device is None:
             print("No device found.")
             sys.exit(1)  # Exit if no device is found.
+        elif len(self.device) > 2:
+            print("Too many Apricorn devices connected")
+            sys.exit(1)  # Exit if no device is found.
         else:
             for dut in range(len(self.device)):
                 if self.device[dut].idProduct == '0351':
                     self.device.pop(dut)
+                    break
             if len(self.device) > 1:
-                raise Exception("Too many Apricorn devices connected")
-            else:
-                self.device = self.device[0]
+                print("Too many Apricorn devices connected")
+                sys.exit(1)  # Exit if no device is found.
+
+        print(type(self.device))
+        pprint(self.device)
+        self.device = self.device[0]
 
         # Use the device’s USB controller name to determine the integer index for CV Suite’s UI.
         self.usb_controller_name = self.device.usbController
@@ -200,7 +207,7 @@ class CVSuiteAutomation:
         # Define base paths needed for the session discovery logic
         self.destination_drive = 'Z:\\USB-IF Results'
         self.source_summary_json = (
-            f'C:\\Users\\{self.windows_user_name}\\Desktop\\cv_suite_testing\\summary_template.json'
+            f'C:\\Users\\{self.windows_user_name}\\Desktop\\cv_suite_testing\\src\\cv_suite_automator\\summary_template.json'
         )
 
         # --- Stage 2: Find or create the test session using our new helper method ---

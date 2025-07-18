@@ -73,10 +73,3 @@ echo.
 echo.
 echo Setup script complete.
 echo.
-echo !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-echo !! REMINDER: You must still manually disable the Windows login    !!
-echo !! prompt for the cross-OS automation to work. This script      !!
-echo !! cannot perform that action.                                  !!
-echo !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-echo.
-pause
