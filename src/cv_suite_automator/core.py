@@ -179,8 +179,6 @@ class CVSuiteAutomation:
                 print("Too many Apricorn devices connected")
                 sys.exit(1)  # Exit if no device is found.
 
-        print(type(self.device))
-        pprint(self.device)
         self.device = self.device[0]
 
         # Use the device’s USB controller name to determine the integer index for CV Suite’s UI.
