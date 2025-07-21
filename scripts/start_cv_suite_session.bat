@@ -53,6 +53,6 @@ if "%ERRORLEVEL%" neq "0" (
 echo      SUCCESS: Script completed without errors.
 echo.
 
-echo [4/4] Rebooting to the next operating system to continue...
-powershell.exe -ExecutionPolicy Bypass -File "%REBOOT_SCRIPT%"
-goto :eof
+@REM echo [4/4] Rebooting to the next operating system to continue...
+@REM powershell.exe -ExecutionPolicy Bypass -File "%REBOOT_SCRIPT%"
+@REM goto :eof
