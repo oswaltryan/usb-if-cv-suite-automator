@@ -1,91 +1,81 @@
 @echo off
 :: =========================================================================
-:: system_setup.bat
+:: system_setup.bat (Final Version)
 :: -------------------------------------------------------------------------
-:: This script performs one-time configuration for the CV Suite Automator.
-:: It uses the Task Scheduler for reliable startup on both Win 10 and Win 11.
+:: This script uses dedicated helper files for reliability:
+::  - create_shortcut.ps1: Creates the .lnk file.
+::  - launch_in_terminal.bat: Ensures the agent runs in Windows Terminal.
 ::
 :: This script MUST be run with Administrator privileges.
 :: =========================================================================
 
-:: --- (1) SCRIPT SETUP (No edits needed) ---
+echo.
+echo  =======================================
+echo   CV Suite Automation - System Setup
+echo  =======================================
+echo.
+echo  This script will now attempt to configure the system.
+echo  Administrator privileges are required.
+echo.
+echo  --- Execution Log ---
+
+:: --- (1) SCRIPT SETUP ---
 set "DRIVE_LETTER=Z"
 for %%I in ("%~dp0\..") do set "PROJECT_ROOT=%%~fI"
-set "AGENT_SCRIPT_NAME=autostart_cv_suite_testing.bat"
-set "AGENT_SCRIPT_PATH=%PROJECT_ROOT%\scripts\%AGENT_SCRIPT_NAME%"
 set "TASK_NAME=CV Suite Autostart Agent"
-
-
-:: --- (2) EXECUTION ---
 echo.
-echo  CV Suite Automation - System Setup
-echo  ------------------------------------
-echo  This script will perform the following actions:
-echo    1. Check for the external results drive at %DRIVE_LETTER%:
-echo    2. Create a Scheduled Task to run the autostart agent on logon.
+echo [INFO] Project Root detected as: "%PROJECT_ROOT%"
 echo.
-echo  This script requires Administrator privileges to create the task.
-pause
 
-
-:: Action 1: Check for External Drive
-echo [1/3] Checking for External Drive...
-if exist %DRIVE_LETTER%:\ (
-    echo      SUCCESS: Drive %DRIVE_LETTER%: found.
+:: --- (2) PRE-CHECKS ---
+echo [1/3] Checking for External Results Drive (%DRIVE_LETTER%:)...
+if exist "%DRIVE_LETTER%:\" (
+    echo      [SUCCESS] Drive %DRIVE_LETTER%: found.
 ) else (
     echo.
     echo      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    echo      !! ERROR: Drive %DRIVE_LETTER%: not found.                            !!
-    echo      !! Please plug in your external results drive and ensure    !!
-    echo      !! Windows has assigned it the letter %DRIVE_LETTER%:.                  !!
+    echo      !! [ERROR] Drive %DRIVE_LETTER%: not found. Aborting.   !!
     echo      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     echo.
-    pause
-    goto :eof
+    goto :EndScript
 )
 echo.
 
-
-:: Action 2: Clean up old startup methods
-echo [2/3] Cleaning up old startup methods (if they exist)...
-set "OLD_SHORTCUT_PATH=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\CV Suite Automation Agent.lnk"
-if exist "%OLD_SHORTCUT_PATH%" (
-    echo      Deleting old startup shortcut...
-    del "%OLD_SHORTCUT_PATH%"
-)
-echo      Checking for and deleting any pre-existing scheduled task...
+:: --- (3) CONFIGURATION ---
+echo [2/3] Cleaning up old Scheduled Task (if it exists)...
 schtasks /delete /tn "%TASK_NAME%" /f > nul 2>&1
-echo      Cleanup complete.
+echo      [SUCCESS] Old task cleanup command sent.
 echo.
 
+echo [3/3] Deploying Autostart Agent via Startup Folder...
+set "LAUNCHER_SCRIPT_PATH=%~dp0launch_in_terminal.bat"
+set "HELPER_SCRIPT_PATH=%~dp0create_shortcut.ps1"
+set "SHORTCUT_PATH=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\CV Suite Automation Agent.lnk"
 
-:: Action 3: Deploy Autostart Agent via Task Scheduler
-echo [3/3] Deploying Autostart Agent via Task Scheduler for reliable startup...
-if not exist "%AGENT_SCRIPT_PATH%" (
-    echo ERROR: Could not find the agent script at the expected location.
-    goto :eof
+if not exist "%HELPER_SCRIPT_PATH%" (
+    echo [ERROR] Missing helper script: create_shortcut.ps1. Aborting.
+    goto :EndScript
+)
+if not exist "%LAUNCHER_SCRIPT_PATH%" (
+    echo [ERROR] Missing launcher script: launch_in_terminal.bat. Aborting.
+    goto :EndScript
 )
 
-echo      Creating new scheduled task: "%TASK_NAME%"
-:: vvvvvvvvvvvvvvv THE FIX IS HERE vvvvvvvvvvvvvvvvvvv
-:: This command creates a task that runs on user logon.
-:: It launches Windows Terminal (wt.exe) and passes our script to it.
-:: /ru "SYSTEM" and /rl HIGHEST ensure it runs with proper privileges.
-schtasks /create /tn "%TASK_NAME%" /tr "wt.exe -d \"%PROJECT_ROOT%\" \"%AGENT_SCRIPT_PATH%\"" /sc onlogon /ru "SYSTEM" /rl HIGHEST /f
+echo      [INFO] Calling PowerShell to create shortcut to the terminal launcher...
+powershell.exe -ExecutionPolicy Bypass -File "%HELPER_SCRIPT_PATH%" -ShortcutPath "%SHORTCUT_PATH%" -TargetPath "%LAUNCHER_SCRIPT_PATH%" -WorkingDirectory "%PROJECT_ROOT%"
 
 if %errorlevel% neq 0 (
-    echo.
-    echo      ERROR: Failed to create the scheduled task. Please ensure you
-    echo      are running this script as an Administrator.
+    echo      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    echo      !! [FATAL ERROR] PowerShell failed to create the shortcut.  !!
+    echo      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ) else (
-    echo      SUCCESS: Scheduled Task created successfully.
-    echo      The automation agent will now run on the next user logon.
+    echo      [SUCCESS] Startup shortcut has been created successfully.
 )
-:: ^^^^^^^^^^^^^^^^^^^^ THE FIX IS HERE ^^^^^^^^^^^^^^^^^^^^
 echo.
 
-
-echo.
-echo Setup script complete.
+:EndScript
+echo =======================================
+echo  Setup script has finished.
+echo =======================================
 echo.
 pause
