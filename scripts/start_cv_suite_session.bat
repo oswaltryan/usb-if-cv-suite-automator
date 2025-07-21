@@ -3,7 +3,7 @@
 :: start_cv_suite_session.bat
 :: -------------------------------------------------------------------------
 :: Kicks off the full, two-OS test automation.
-:: This version includes error handling to abort on script failure.
+:: This version includes robust error handling to abort on script failure.
 :: =========================================================================
 
 :: --- 1. Validate Input ---
@@ -36,9 +36,9 @@ echo.
 
 :: vvvvvvvvvvvvvvv THE FIX IS HERE vvvvvvvvvvvvvvvvvvv
 :: Check the exit code (%ERRORLEVEL%) of the last command (run_automation.bat).
-:: A value other than 0 indicates an error.
+:: By quoting the variables, we prevent syntax errors if %ERRORLEVEL% is empty.
 echo [3/4] Checking for automation script errors...
-if %ERRORLEVEL% neq 0 (
+if "%ERRORLEVEL%" neq "0" (
     echo.
     echo      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     echo      !! ERROR: The Python automation script failed with a non-zero    !!
