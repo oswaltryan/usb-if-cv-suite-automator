@@ -24,44 +24,35 @@ echo =================================================
 echo  CV Suite Automation - Full Session Initiator
 echo =================================================
 echo.
-echo [1/4] Creating automation "baton" for the next OS...
+echo [1/3] Creating automation "baton" for the next OS...
 echo %CHIPSET_ARG% > "%FLAG_FILE%"
-echo      Flag file created at: %FLAG_FILE%
 echo.
 
-echo [2/4] Starting test suite on the current OS...
-echo      This will now be handled by run_automation.bat
+echo [2/3] Starting test suite on the current OS...
 call "%~dp0run_automation.bat" %CHIPSET_ARG%
 echo.
 
+:: --- Check for automation script errors ---
+echo [3/3] Checking for script errors...
+
 :: vvvvvvvvvvvvvvv THE FIX IS HERE vvvvvvvvvvvvvvvvvvv
-:: Check the exit code (%ERRORLEVEL%) of the last command (run_automation.bat).
-:: By quoting the variables, we prevent syntax errors if %ERRORLEVEL% is empty.
-echo [3/4] Checking for automation script errors...
+:: This uses a much simpler, more robust error message block.
+:: It also still uses the safe, quoted comparison.
 if "%ERRORLEVEL%" neq "0" (
     echo.
-    echo      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    echo      !! ERROR: The Python automation script failed with a non-zero    !!
-    echo      !!        exit code (%ERRORLEVEL%).                                     !!
-    echo      !!                                                               !!
-    echo      !!        Aborting the test session. The reboot will be          !!
-    echo      !!        cancelled and the flag file will be cleaned up.        !!
-    echo      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    echo ERROR: The Python automation script failed with exit code %ERRORLEVEL%.
+    echo Aborting the test session and cleaning up the flag file.
+    echo The system will NOT be rebooted.
     echo.
-    echo      Cleaning up flag file...
     del "%FLAG_FILE%"
     pause
     goto :eof
 )
-echo      SUCCESS: Script completed without errors.
-echo.
 :: ^^^^^^^^^^^^^^^^^^^^ THE FIX IS HERE ^^^^^^^^^^^^^^^^^^^^
 
+echo      SUCCESS: Script completed without errors.
+echo.
 
 echo [4/4] Rebooting to the next operating system to continue...
-echo      The system will now restart.
 powershell.exe -ExecutionPolicy Bypass -File "%REBOOT_SCRIPT%"
-
-echo.
-echo Reboot initiated.
 goto :eof
