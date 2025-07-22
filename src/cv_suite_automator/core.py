@@ -203,7 +203,7 @@ class CVSuiteAutomation:
         self.usb_protocol = int(self.device.bcdUSB)
 
         # Define base paths needed for the session discovery logic
-        self.destination_drive = 'Z:\\USB-IF Results'
+        self.destination_drive = 'M:\\USB-IF Results'
         self.source_summary_json = (
             f'C:\\Users\\{self.windows_user_name}\\Desktop\\cv_suite_testing\\src\\cv_suite_automator\\summary_template.json'
         )

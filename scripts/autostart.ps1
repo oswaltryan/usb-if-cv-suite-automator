@@ -9,7 +9,7 @@ Set-StrictMode -Version Latest
 try {
     # Define paths relative to the project root.
     $ProjectRoot = (Get-Item $PSScriptRoot).Parent.FullName
-    $FlagFile = Join-Path -Path $ProjectRoot -ChildPath "test_in_progress.flag"
+    $FlagFile = "M:\test_in_progress.flag"
 
     # 1. Gatekeeper: Exit silently if no test is in progress.
     if (-not (Test-Path -Path $FlagFile)) {

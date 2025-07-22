@@ -20,7 +20,8 @@ echo.
 echo  --- Execution Log ---
 
 :: --- (1) SCRIPT SETUP ---
-set "DRIVE_LETTER=Z"
+      
+set "DRIVE_LETTER=M"
 for %%I in ("%~dp0\..") do set "PROJECT_ROOT=%%~fI"
 set "LAUNCHER_SCRIPT_PATH=%~dp0task_scheduler_launcher.bat"
 set "TASK_NAME=CV Suite Autostart Agent"

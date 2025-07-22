@@ -61,11 +61,22 @@ pip install --no-index --find-links=./wheels -r requirements.txt
 This command installs your project's local source code (`-e .` in requirements.txt) and all its dependencies.
 
 ### Step 3: Configure Windows System
-This step ensures your Windows environment is correctly configured for the automation. You can do this manually or with the provided script. Choose one method.
+This step ensures your Windows environment is correctly configured for the automation.
+
+1.  **Add Windows Terminal to PATH:** The automation scripts use `wt.exe` (Windows Terminal) to launch the post-reboot agent. You must ensure its location is in the system's PATH variable.
+    *   In File Explorer search your `C:` drive for "wt.exe".
+    *   Copy the path to that file.
+    *   Press `Win + R`, type `sysdm.cpl`, and press Enter.
+    *   Go to the `Advanced` tab and click `Environment Variables...`.
+    *   Under `System variables`, find and select the `Path` variable, then click `Edit...`.
+    *   Click `New` and add the path you copied earlier.
+    *   Click OK on all windows to save the changes.
+
+With that done, you can now set up the autostart agent using one of the following methods.
 
 ---
 #### Method A: Manual Configuration
-1.  **Prepare External Drive:** Plug in your external results drive. Open **Disk Management** in Windows and ensure the drive is assigned the letter **`Z:`**. This is required for the scripts to find it.
+1.  **Prepare External Drive:** Plug in your external results drive. Open **Disk Management** in Windows and ensure the drive is assigned the letter **`M:`**. This is required for the scripts to find it.
 2.  **Deploy Autostart Agent:**
     - Right-click on `C:\cv_suite_testing\scripts\autostart_cv_suite_testing.bat`.
     - Select **"Create shortcut"**.
@@ -77,8 +88,8 @@ This step ensures your Windows environment is correctly configured for the autom
 #### Method B: Assisted Scripted Configuration
 A script is provided to assist with parts of the setup.
 
-1.  **Prepare External Drive:** First, plug in your external results drive and ensure Windows has assigned it the letter **`Z:`**.
-2.  **Run the Setup Script:** Right-click `C:\cv_suite_testing\scripts\system_setup.bat` and select **"Run as administrator"**. The script will verify that the `Z:` drive exists and deploy the autostart agent shortcut for you.
+1.  **Prepare External Drive:** First, plug in your external results drive and ensure Windows has assigned it the letter **`M:`**.
+2.  **Run the Setup Script:** Right-click `C:\cv_suite_testing\scripts\system_setup.bat` and select **"Run as administrator"**. The script will verify that the `M:` drive exists and deploy the autostart agent shortcut for you.
 3.  **Disable Windows Login:** The script **cannot** perform this step. You must still manually disable the password requirement for login for the cross-OS automation to work.
 ---
 
