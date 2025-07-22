@@ -1,9 +1,28 @@
 # =========================================================================
-# autostart.ps1
+# autostart.ps1 (Self-Relaunching Version)
 # -------------------------------------------------------------------------
-# This version incorporates the user's correct, working argument list.
-# It correctly runs the Python package and waits for interactive input.
+# This script is now self-aware.
+# 1. It checks if it was launched with the '-IsVisible' switch.
+# 2. If NOT, it means it's running silently from Task Scheduler. Its only
+#    job is to re-launch itself visibly in a new Windows Terminal.
+# 3. If YES, it means it's running in the visible terminal, and it proceeds
+#    with the actual automation logic.
 # =========================================================================
+param(
+    # This switch is the "key" to the gate. It's only present on the second, visible launch.
+    [switch]$IsVisible
+)
+
+# --- GATEKEEPER ---
+# If this script is running without the switch, it must re-launch itself visibly.
+if (-not $IsVisible.IsPresent) {
+    # Silently launch the new visible terminal and then exit this background script immediately.
+    Start-Process -FilePath "wt.exe" -ArgumentList "powershell.exe -NoExit -File `"$($MyInvocation.MyCommand.Path)`" -IsVisible"
+    exit
+}
+
+# --- If we get past the gate, the script is visible and can proceed. ---
+# --- (This is your original script logic, unchanged) ---
 Set-StrictMode -Version Latest
 
 try {

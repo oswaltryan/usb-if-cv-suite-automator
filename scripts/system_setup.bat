@@ -56,17 +56,19 @@ echo.
 :: --- (4) DEPLOY new INTERACTIVE Task ---
 echo [3/3] Deploying new Interactive Task via Task Scheduler...
 
-if not exist "%LAUNCHER_SCRIPT_PATH%" (
-    echo [ERROR] The launcher script is missing at "%LAUNCHER_SCRIPT_PATH%".
+set "PS_EXECUTABLE=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
+set "AGENT_SCRIPT_PATH=%~dp0\autostart.ps1"
+
+if not exist "%AGENT_SCRIPT_PATH%" (
+    echo [ERROR] The agent script is missing at "%AGENT_SCRIPT_PATH%".
     goto :EndScript
 )
 
 echo      Creating new scheduled task: "%TASK_NAME%"
 
-:: vvvvvvvvvvvvvvv THE FIX IS HERE vvvvvvvvvvvvvvvvvvv
-:: Removed the invalid /sd parameter to make the command valid for ONLOGON tasks.
-schtasks /create /tn "%TASK_NAME%" /tr "%LAUNCHER_SCRIPT_PATH%" /sc onlogon /rl HIGHEST /f
-:: ^^^^^^^^^^^^^^^^^^^^ THE FIX IS HERE ^^^^^^^^^^^^^^^^^^^^
+:: Create the task to call our self-relaunching PowerShell script directly.
+:: The script will run silently, launch the visible terminal, and then exit.
+schtasks /create /tn "%TASK_NAME%" /tr "'%PS_EXECUTABLE%' -ExecutionPolicy Bypass -WindowStyle Hidden -File '%AGENT_SCRIPT_PATH%'" /sc onlogon /rl HIGHEST /f
 
 if %errorlevel% neq 0 (
     echo.
