@@ -50,9 +50,26 @@ from .utils import *
 controller = IOController()              # Initialize controller
 controller.turn_on('power')               # Turn on power (channel 13)
 controller.turn_on('usb3')                # Turn on USB3 (channel 14)
-input(f"Plug device in USB2/3 switchboard and unlock. Press enter to continue")
-time.sleep(5)
 
+print("Searching for a connected and unlocked Apricorn device...")
+print("Please plug the device into the USB2/3 switchboard and unlock it.")
+
+device_handle = None
+while not device_handle:
+    # Attempt to find the device
+    device_handle = find_apricorn_device()
+    
+    if not device_handle:
+        # If no device is found, wait a few seconds and try again.
+        print("Device not found. Retrying in 10 seconds...")
+        time.sleep(10)
+    else:
+        # If a device is found, break the loop and proceed.
+        print("Device detected successfully!")
+        break
+
+# A short pause to ensure the device is fully initialized by the OS
+time.sleep(2)
 
 class CVSuiteAutomation:
     """
@@ -475,8 +492,8 @@ class CVSuiteAutomation:
             - Finds the test in CV Suite's "ListBox" and highlights it.
             - If no tests have been run yet, sets the test description in the "Edit" control.
             - Clicks "Run" to start the test.
-            - Waits for the device selection dialog, then picks the correct device
-              (based on the device's vendor ID).
+            - Waits for the device selection dialog and repeatedly attempts to find and
+            select the correct device until successful.
         """
         # Select the specified test from the CV Suite main window's ListBox.
         test_list_box = self.main_window.child_window(best_match="ListBox")
@@ -499,22 +516,42 @@ class CVSuiteAutomation:
         # Within that dialog, find the ListBox of connected devices.
         device_list_box = device_list_outer_box.child_window(best_match="ListBox")
 
-        # Attempt to find the target device by matching the vendor ID.
-        devices = device_list_box.texts()
         device_found = False
-        for index, item in enumerate(devices):
-            if self.device.idVendor in item:
-                device_found = True
-                # The 'index-1' logic may be specific to how the ListBox enumerates items.
-                device_list_box.select(index - 1)
-                time.sleep(3)  # brief delay for selection
-                device_list_outer_box.child_window(best_match="Ok").click()
-                break
+        # Loop until the device is successfully found and selected.
+        while not device_found:
+            print("Attempting to find and select the device...")
 
-        # If not found, prompt user to fix the connection.
-        if not device_found:
-            input("DEVICE NOT FOUND. RESTART TEST, ENSURE DEVICE IS UNLOCKED, "
-                  "AND CONNECTED TO THE CORRECT CONTROLLER, THEN PRESS ENTER.")
+            # Check if the dialog is still there. If not, something else happened.
+            if not device_list_outer_box.exists():
+                print("Device selection dialog disappeared unexpectedly. Aborting test.")
+                # Exit the method since we can't proceed.
+                return
+
+            # Get the current list of devices from the GUI
+            devices = device_list_box.texts()
+
+            for index, item in enumerate(devices):
+                if self.device.idVendor in item:
+                    print(f"Device found: {item}")
+                    device_found = True
+                    try:
+                        # The 'index-1' logic is specific to how this ListBox enumerates items.
+                        device_list_box.select(index - 1)
+                        time.sleep(1) # A short pause for UI to update.
+                        device_list_outer_box.child_window(best_match="Ok").click()
+                    except Exception as e:
+                        print(f"Error occurred while selecting the device or clicking OK: {e}")
+                        # Reset device_found to False to ensure the loop retries.
+                        device_found = False
+                    # Exit the for loop since we've found our device (or tried to).
+                    break
+
+            if not device_found:
+                # If the for loop completes and the device is still not found,
+                # print a message and wait before the while loop tries again.
+                print("DEVICE NOT FOUND. Please ensure the device is unlocked and connected. Retrying in 10 seconds...")
+                time.sleep(10)
+                # The 'while' loop will now repeat the entire check.
 
 
     def clear_dialog_boxes(self, test: int):

@@ -109,12 +109,54 @@ for i in range(2):
         controller_switched = True
 
         # Prompt the user to physically move the device to the other USB controller.
-        controller.turn_off('power')               # Turn off power (channel 13)
+        controller.turn_on('usb3')
+
+    # Switch from ASMedia -> Intel or Intel -> ASMedia for the second run.
+    if not controller_switched:
+        # Determine the new target controller
+        if cv_suite.usb_controller_name == "ASMedia":
+            new_controller_name = "Intel"
+            new_controller_index = 2
+        else:
+            new_controller_name = "ASMedia"
+            new_controller_index = 0
+        
+        # Power cycle the device port to ensure a clean re-detection
+        controller.turn_off('power')
         time.sleep(1)
         controller.turn_on('usb3')
         controller.turn_on('power')
-        input(f"Connect device to {cv_suite.usb_controller_name} USB Controller")
 
+        print("\n" + "="*70)
+        print(f"ACTION REQUIRED: Please move the device to a '{new_controller_name}' USB port.")
+        print("The script will continue automatically once the device is detected on the correct controller.")
+        print("="*70)
+
+        while True:
+            # Use the find_apricorn_device utility to see what's connected
+            device = find_apricorn_device()
+            
+            if device:
+                # A device was found. Check if it's on the correct controller.
+                # Note: find_apricorn_device returns a list, so we check the first element.
+                detected_controller = device[0].usbController
+                if detected_controller == new_controller_name:
+                    print(f"Success! Device detected on the '{new_controller_name}' controller. Proceeding...")
+                    break  # The device is on the new controller, exit the loop
+                else:
+                    # The device is connected, but still on the old controller.
+                    print(f"Device is still on the '{detected_controller}' port. Please move it to '{new_controller_name}'. Retrying in 5 seconds...")
+                    time.sleep(5)
+            else:
+                # No device is detected at all.
+                print(f"Waiting for device to be connected to the '{new_controller_name}' port... Retrying in 5 seconds...")
+                time.sleep(5)
+
+        # Now that the device is in the right place, update the script's state
+        cv_suite.usb_controller_name = new_controller_name
+        cv_suite.usb_controller = new_controller_index
+        cv_suite.usb_protocol = 3  # Reset to USB3 for the next controller
+        controller_switched = True
         protocol_switched = False
 
 # After all tests for the current OS are done, check if the whole session is complete.
