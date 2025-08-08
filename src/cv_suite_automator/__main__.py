@@ -46,6 +46,7 @@ for i in range(2):
     print(f"- {cv_suite.usb_controller_name}")
 
     # Start the CV Suite, select the current controller.
+    time.sleep(10)
     cv_suite.start_cv_suite()
     
     # We manage USB 2 vs. USB 3 protocols in another loop.
@@ -91,32 +92,32 @@ for i in range(2):
             else:
                 cv_suite.usb_protocol -= 1  # Switch from USB3 -> USB2
             controller.turn_off('usb3')               # Turn off USB3 (channel 14)
-            time.sleep(5)
+            time.sleep(15)
             protocol_switched = True
 
     # Close the CV Suite application.
     cv_suite.close_cv_suite()
 
     # Switch from ASMedia -> Intel or Intel -> ASMedia for the second run.
-    if not controller_switched:
-        if cv_suite.usb_controller_name == "ASMedia":
-            cv_suite.usb_controller_name = "Intel"
-            cv_suite.usb_controller = 2
-        else:
-            cv_suite.usb_controller_name = "ASMedia"
-            cv_suite.usb_controller = 0
-        cv_suite.usb_protocol = 3
-        controller_switched = True
+    # if not controller_switched:
+    #     if cv_suite.usb_controller_name == "ASMedia":
+    #         cv_suite.usb_controller_name = "Intel"
+    #         cv_suite.usb_controller = 1
+    #     else:
+    #         cv_suite.usb_controller_name = "ASMedia"
+    #         cv_suite.usb_controller = 0
+    #     cv_suite.usb_protocol = 3
+    #     controller_switched = True
 
-        # Prompt the user to physically move the device to the other USB controller.
-        controller.turn_on('usb3')
+    # Prompt the user to physically move the device to the other USB controller.
+    controller.turn_on('usb3')
 
     # Switch from ASMedia -> Intel or Intel -> ASMedia for the second run.
     if not controller_switched:
         # Determine the new target controller
         if cv_suite.usb_controller_name == "ASMedia":
             new_controller_name = "Intel"
-            new_controller_index = 2
+            new_controller_index = 1
         else:
             new_controller_name = "ASMedia"
             new_controller_index = 0
@@ -149,7 +150,7 @@ for i in range(2):
                     time.sleep(5)
             else:
                 # No device is detected at all.
-                print(f"Waiting for device to be connected to the '{new_controller_name}' port... Retrying in 5 seconds...")
+                # print(f"Waiting for device to be connected to the '{new_controller_name}' port... Retrying in 5 seconds...")
                 time.sleep(5)
 
         # Now that the device is in the right place, update the script's state

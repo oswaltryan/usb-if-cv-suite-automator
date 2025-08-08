@@ -60,9 +60,9 @@ while not device_handle:
     device_handle = find_apricorn_device()
     
     if not device_handle:
+        time.sleep(15)
         # If no device is found, wait a few seconds and try again.
-        print("Device not found. Retrying in 10 seconds...")
-        time.sleep(10)
+        print("Device not found. Retrying in 15 seconds...")
     else:
         # If a device is found, break the loop and proceed.
         print("Device detected successfully!")
@@ -203,7 +203,7 @@ class CVSuiteAutomation:
         if self.usb_controller_name == "ASMedia":
             self.usb_controller = 0
         else:
-            self.usb_controller = 2
+            self.usb_controller = 1
 
         # Detect Windows version (10 or 11) and set user name accordingly.
         self.windows_version = int(platform.win32_ver()[0])
@@ -519,7 +519,7 @@ class CVSuiteAutomation:
         device_found = False
         # Loop until the device is successfully found and selected.
         while not device_found:
-            print("Attempting to find and select the device...")
+            # print("Attempting to find and select the device...")
 
             # Check if the dialog is still there. If not, something else happened.
             if not device_list_outer_box.exists():
@@ -532,7 +532,7 @@ class CVSuiteAutomation:
 
             for index, item in enumerate(devices):
                 if self.device.idVendor in item:
-                    print(f"Device found: {item}")
+                    # print(f"Device found: {item}")
                     device_found = True
                     try:
                         # The 'index-1' logic is specific to how this ListBox enumerates items.
@@ -549,8 +549,8 @@ class CVSuiteAutomation:
             if not device_found:
                 # If the for loop completes and the device is still not found,
                 # print a message and wait before the while loop tries again.
-                print("DEVICE NOT FOUND. Please ensure the device is unlocked and connected. Retrying in 10 seconds...")
-                time.sleep(10)
+                print("DEVICE NOT FOUND. Please ensure the device is unlocked and connected. Retrying in 15 seconds...")
+                time.sleep(15)
                 # The 'while' loop will now repeat the entire check.
 
 
