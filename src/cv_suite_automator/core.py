@@ -62,10 +62,7 @@ while not device_handle:
     if not device_handle:
         time.sleep(15)
         # If no device is found, wait a few seconds and try again.
-        print("Device not found. Retrying in 15 seconds...")
     else:
-        # If a device is found, break the loop and proceed.
-        print("Device detected successfully!")
         break
 
 # A short pause to ensure the device is fully initialized by the OS
@@ -426,6 +423,7 @@ class CVSuiteAutomation:
         # If we reach this point, no valid session was found to latch onto.
         # Create a new session.
         print("No suitable recent session to latch onto. Creating a new test session.")
+        print("")
         new_session_id = time.strftime("%Y-%m-%d %H%M", time.localtime())
         new_session_path = os.path.join(base_device_dir, new_session_id)
         os.makedirs(new_session_path, exist_ok=True)

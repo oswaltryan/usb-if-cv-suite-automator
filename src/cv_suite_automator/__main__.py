@@ -98,17 +98,6 @@ for i in range(2):
     # Close the CV Suite application.
     cv_suite.close_cv_suite()
 
-    # Switch from ASMedia -> Intel or Intel -> ASMedia for the second run.
-    # if not controller_switched:
-    #     if cv_suite.usb_controller_name == "ASMedia":
-    #         cv_suite.usb_controller_name = "Intel"
-    #         cv_suite.usb_controller = 1
-    #     else:
-    #         cv_suite.usb_controller_name = "ASMedia"
-    #         cv_suite.usb_controller = 0
-    #     cv_suite.usb_protocol = 3
-    #     controller_switched = True
-
     # Prompt the user to physically move the device to the other USB controller.
     controller.turn_on('usb3')
 
@@ -123,14 +112,13 @@ for i in range(2):
             new_controller_index = 0
         
         # Power cycle the device port to ensure a clean re-detection
-        controller.turn_off('power')
-        time.sleep(1)
-        controller.turn_on('usb3')
-        controller.turn_on('power')
+        # controller.turn_off('power')
+        # time.sleep(1)
+        # controller.turn_on('usb3')
+        # controller.turn_on('power')
 
         print("\n" + "="*70)
         print(f"ACTION REQUIRED: Please move the device to a '{new_controller_name}' USB port.")
-        print("The script will continue automatically once the device is detected on the correct controller.")
         print("="*70)
 
         while True:
@@ -142,15 +130,13 @@ for i in range(2):
                 # Note: find_apricorn_device returns a list, so we check the first element.
                 detected_controller = device[0].usbController
                 if detected_controller == new_controller_name:
-                    print(f"Success! Device detected on the '{new_controller_name}' controller. Proceeding...")
+                    print("")
                     break  # The device is on the new controller, exit the loop
                 else:
                     # The device is connected, but still on the old controller.
-                    print(f"Device is still on the '{detected_controller}' port. Please move it to '{new_controller_name}'. Retrying in 5 seconds...")
                     time.sleep(5)
             else:
                 # No device is detected at all.
-                # print(f"Waiting for device to be connected to the '{new_controller_name}' port... Retrying in 5 seconds...")
                 time.sleep(5)
 
         # Now that the device is in the right place, update the script's state
