@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cv-suite-automator"
+version = "0.2.1"
+description = "Semi-automated USB-IF CV Suite orchestration across controllers and dual-boot Windows environments."
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+  { name = "Ryan Oswalt" }
+]
+dependencies = [
+  "comtypes==1.4.11",
+  "phidget22==1.22.20250714",
+  "pywin32==311; platform_system == 'Windows'",
+  "pywinauto==0.6.9",
+  "usb-tool==0.1.8",
+]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: Microsoft :: Windows",
+  "Topic :: Software Development :: Testing",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["cv_suite_automator*"]
+
+[tool.setuptools.package-data]
+cv_suite_automator = ["summary_template.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

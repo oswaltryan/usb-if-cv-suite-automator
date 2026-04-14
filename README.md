@@ -1,125 +1,144 @@
-# CV Suite Automation
+# CV Suite Automator
 
-This project provides a suite of Python scripts and orchestration tools to automate USB-IF compliance testing using the "USB 3 Gen X Command Verifier" (CV Suite) application on Windows. It is designed to run a full test matrix across different USB host controllers (e.g., ASMedia, Intel), USB protocols (2.0 and 3.0), and operating systems (Windows 10 and 11).
+Windows automation toolkit for USB-IF CV Suite regression and qualification runs on Apricorn devices.
 
-The system uses a semi-automated workflow, handling all software and OS-level orchestration, but requiring a single manual hardware intervention during the test run on each OS.
+The project automates high-friction validation steps across:
+- Host controllers (ASMedia and Intel)
+- USB protocol modes (USB2 and USB3)
+- Dual-boot Windows environments (Windows 10 and Windows 11)
 
-## Project Structure
+It is intentionally semi-automated: software orchestration is scripted end-to-end, while one physical DUT port move is still required between controller passes.
 
-The project follows a modern Python structure to ensure clarity and maintainability.
+## At a glance
 
-```
-cv_suite_testing/
-├── README.md
-├── requirements.txt
-├── setup.py
-├── wheels/                         # Pre-compiled offline dependencies
-│
-├── scripts/                        # Orchestration and setup scripts
-│   ├── start_cv_suite_session.bat  # INITIATOR: Kicks off the full, two-OS test run.
-│   ├── run_automation.bat          # EXECUTOR: Runs a single-OS test; handles PYTHONPATH.
-│   ├── autostart_cv_suite_testing.bat # AGENT: Runs automatically after reboot.
-│   ├── system_setup.bat            # HELPER: Assists with one-time system configuration.
-│   └── toggle_windows_version.ps1  # UTILITY: Reboots the machine to the other OS.
-│
-└── src/
-    └── cv_suite_automator/         # The main Python package
-        └── ... (package contents) ...
-```
+- Problem: USB-IF CV Suite runs are repetitive and error-prone across controllers, protocol modes, and dual-boot OS passes.
+- Stack: Python automation with `pywinauto` (CV Suite UI), `Phidget22` (relay control), and batch/PowerShell orchestration.
+- Outcome: deterministic session outputs (`summary.json` + structured report hierarchy) for regression and qualification evidence.
 
-## Prerequisites
+## Why this exists
 
-### Hardware
-- A test PC with **both Windows 10 and Windows 11** installed in a dual-boot configuration.
-- The USB Device Under Test (DUT), e.g., an Apricorn encrypted drive.
-- An **external hard drive or SSD** for storing test results.
-- A **Phidgets IO Controller** and a corresponding USB 2.0/3.0 switchboard.
-- Necessary cables to connect the switchboard to **both an ASMedia and an Intel USB 3.x port** on the motherboard.
+USB-IF CV Suite runs are repetitive, stateful, and easy to derail when you are moving between host controllers, USB protocol paths, and dual-boot OS setups. This project provides a deterministic orchestration layer that:
+- Drives CV Suite through scripted UI interactions (`pywinauto`)
+- Controls lab relay hardware (`Phidget22`) for USB path switching
+- Persists progress and report artifacts in a structured, repeatable folder model
 
-### Software
-- **Python 3.12** or later.
-- **Git** for cloning the repository.
-- The **USB-IF "USB 3 Gen X Command Verifier"** application installed on *both* operating systems.
+## Architecture
 
-## System Setup & Commissioning (One-Time Only)
-
-The following steps must be performed on **both** the Windows 10 and Windows 11 partitions to prepare the test environment.
-
-### Step 1: Get the Project Code
-Clone this repository to your machine.
-```bash
-git clone <your-repo-url> C:\cv_suite_testing
-cd C:\cv_suite_testing
+```mermaid
+flowchart TD
+  A["Start run: full session or single OS"] --> B["Detect DUT, OS, and session"]
+  B --> C["ASMedia: USB2 and USB3"]
+  C --> E["Intel: USB2 and USB3"]
+  E --> G["Update summary and collect HTML reports"]
+  G --> H{"Other OS pass required?"}
+  H -->|Yes| I["Reboot to other OS and resume session"]
+  I --> B
+  H -->|No| K["Session complete"]
 ```
 
-### Step 2: Install Python Dependencies (Offline)
-This project installs its dependencies directly into your system's main Python environment. The provided `wheels` folder allows for a completely offline installation.
+## Deep Dive
+
+### 1. Session continuity across dual-boot runs
+
+The automation is built for Windows 10/11 cross-OS validation sessions. It discovers whether to continue an in-flight session or create a new one, then keeps progress in a shared `summary.json` so the second OS pass can resume deterministically.
+
+### 2. Deterministic test matrix execution
+
+Each OS pass runs a fixed controller/protocol matrix (ASMedia + Intel, USB2 + USB3) through CV Suite UI automation. Protocol execution order can vary by detected device state, but both protocol modes are exercised per controller pass. This avoids ad hoc operator sequencing and makes runs easier to compare across regression cycles.
+
+### 3. Lab hardware orchestration
+
+The relay layer (`Phidget22`) controls switchboard channels used during automation (`power`, `usb3`). This allows software-driven state changes where possible and reduces manual handling to the minimum required physical actions.
+
+### 4. Structured artifact model for reviewability
+
+Reports are pulled into a stable hierarchy under `M:\USB-IF Results\...`, and pass/fail metadata is written into session summary JSON. The output layout is designed for fast triage, rerun tracking, and qualification evidence packaging.
+
+### 5. Operational packaging for lab environments
+
+The project ships with modern Python packaging metadata (`pyproject.toml`), offline wheel support for constrained lab hosts, and small utility-focused tests backed by CI for quick confidence on non-hardware logic.
+
+## Environment requirements
+
+Hardware:
+- Dual-boot Windows 10/11 validation host (for full session)
+- DUT (for example, Apricorn secure storage)
+- Phidgets IO controller and USB2/USB3 switchboard
+- External results drive mounted as `M:`
+
+Software:
+- Python 3.12+
+- USB-IF CV Suite installed on both Windows partitions
+- Local dependencies from `wheels/` for offline installs (including `usb-tool`)
+
+## Assumptions
+
+- Results target drive is mounted as `M:` during execution.
+- CV Suite is installed and accessible in expected host-specific paths.
+- Lab host usernames and path conventions match script expectations.
+- DUT is connected and unlocked when the run starts.
+
+## Install
+
+Offline/local wheel install (recommended for lab machines):
+
 ```powershell
-# Run this command from the project root directory
 pip install --no-index --find-links=./wheels -r requirements.txt
 ```
-This command installs your project's local source code (`-e .` in requirements.txt) and all its dependencies.
 
-### Step 3: Configure Windows System
-This step ensures your Windows environment is correctly configured for the automation.
+Editable install:
 
-1.  **Add Windows Terminal to PATH:** The automation scripts use `wt.exe` (Windows Terminal) to launch the post-reboot agent. You must ensure its location is in the system's PATH variable.
-    *   In File Explorer search your `C:` drive for "wt.exe".
-    *   Copy the path to that file.
-    *   Press `Win + R`, type `sysdm.cpl`, and press Enter.
-    *   Go to the `Advanced` tab and click `Environment Variables...`.
-    *   Under `System variables`, find and select the `Path` variable, then click `Edit...`.
-    *   Click `New` and add the path you copied earlier.
-    *   Click OK on all windows to save the changes.
+```powershell
+pip install -e .
+```
 
-With that done, you can now set up the autostart agent using one of the following methods.
+## Run
 
----
-#### Method A: Manual Configuration
-1.  **Prepare External Drive:** Plug in your external results drive. Open **Disk Management** in Windows and ensure the drive is assigned the letter **`M:`**. This is required for the scripts to find it.
-2.  **Deploy Autostart Agent:**
-    - Right-click on `C:\cv_suite_testing\scripts\autostart_cv_suite_testing.bat`.
-    - Select **"Create shortcut"**.
-    - Open the Windows Startup folder by pressing `Win + R`, typing `shell:startup`, and hitting Enter.
-    - Move the newly created shortcut into this Startup folder.
-3.  **Disable Windows Login:** For the automated cross-OS reboot to work, you must manually disable the password requirement for login.
+Single-OS run:
 
----
-#### Method B: Assisted Scripted Configuration
-A script is provided to assist with parts of the setup.
+```powershell
+scripts\run_automation.bat "{chipset}"
+```
 
-1.  **Prepare External Drive:** First, plug in your external results drive and ensure Windows has assigned it the letter **`M:`**.
-2.  **Run the Setup Script:** Right-click `C:\cv_suite_testing\scripts\system_setup.bat` and select **"Run as administrator"**. The script will verify that the `M:` drive exists and deploy the autostart agent shortcut for you.
-3.  **Disable Windows Login:** The script **cannot** perform this step. You must still manually disable the password requirement for login for the cross-OS automation to work.
----
+Full dual-OS session:
 
-## Workflow & Usage
+```powershell
+scripts\start_cv_suite_session.bat "{chipset}"
+```
 
-The launcher scripts handle all necessary path configurations automatically.
+Operator workflow:
+- Start the full session script on the first OS.
+- Perform the single required physical cable move when prompted.
+- Let the machine reboot and resume on the second OS.
+- Review merged artifacts in the session output directory.
 
-### Fully Automated Workflow (Recommended)
-Use this method to run the complete test suite across both operating systems.
+## Output model
 
-1.  **Connect the DUT:** Plug the **unlocked** Device Under Test into the USB switchboard port corresponding to the first controller to be tested (e.g., ASMedia).
+Test artifacts are written to a structured session directory:
 
-2.  **Initiate the Session:** Open a Command Prompt or PowerShell and run the **`start_cv_suite_session.bat`** script. Pass the bridge controller chipset as an argument.
-    ```powershell
-    C:\cv_suite_testing\scripts\start_cv_suite_session.bat "{bridge_chipset}"
-    ```
+```text
+M:\USB-IF Results\<chipset + product>\v<bcdDevice>\<capacity>GB\<timestamp>\
+```
 
-3.  **Perform the Physical Controller Switch:**
-    The automation will pause **once per operating system** and prompt you in the console:
-    > **REQUIRED INTERVENTION:** When you see the prompt `Connect device to <Other> USB Controller`, you must physically move the DUT's cable to the other controller's port on the switchboard and press **Enter** to continue.
+Each session stores:
+- Per-OS report folders (Windows 10 and Windows 11)
+- Per-controller and per-protocol report splits (ASMedia/Intel, USB2/USB3)
+- A `summary.json` file that tracks completion and pass/fail outcomes
 
-### Manual Workflow (Single OS Spot-Check)
-Use this method for debugging or running tests on a single OS without triggering a reboot.
+## Development checks
 
-1.  **Connect the DUT:** Plug the unlocked device into the desired controller port.
-2.  **Run the Launcher Script:** From a Command Prompt or PowerShell, run the **`run_automation.bat`** script, passing the chipset as an argument.
-    ```powershell
-    C:\cv_suite_testing\scripts\run_automation.bat "{bridge_chipset}"
-    ```
+Run fast unit tests (no hardware required):
 
-## Known Limitations
+```powershell
+$env:PYTHONPATH = "$pwd\src"
+pytest tests -q
+```
 
-The primary manual step in the automated workflow is the physical switching of the DUT between host controller ports. This will be eliminated by integrating a programmable Acroname USB hub in a future update.
+CI workflow: `.github/workflows/ci.yml`
+
+## Limitations
+
+- One manual cable move between controllers is still required.
+- End-to-end execution depends on lab-specific hardware, OS usernames, and CV Suite installation paths.
+- The automation assumes Windows-only tooling (`pywinauto`, batch/PowerShell wrappers).
+- UI automation reliability is coupled to CV Suite window/control behavior and may require updates if UI layouts change.
