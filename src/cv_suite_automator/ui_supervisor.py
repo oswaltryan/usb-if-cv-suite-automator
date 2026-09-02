@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import logging
 import re
 import time
 from dataclasses import dataclass, field
@@ -16,6 +17,8 @@ MAIN_WINDOW_TITLE = "USB 3 Gen X Command Verifier"
 COMMAND_DIALOG_TITLE = "USB Command Verifier (xHCI - USB 3)"
 RESULTS_WINDOW_TITLE = "Results"
 LOG_CONTROL_ID = 1007
+
+logger = logging.getLogger(__name__)
 
 
 class EventKind(Enum):
@@ -221,7 +224,9 @@ class CVSuiteUISupervisor:
                 self.main_window.restore()
             self.main_window.set_focus()
         except Exception as exc:
-            print(f"Warning: CV Suite could not be brought to the foreground: {exc}")
+            logger.exception(
+                "Warning: CV Suite could not be brought to the foreground: %s", exc
+            )
 
     def wait_for_main_window(self, phase: str) -> None:
         """Wait for a dismissed modal to release the main window, then focus it."""
@@ -359,9 +364,11 @@ class CVSuiteUISupervisor:
             try:
                 incident_dir.mkdir(parents=True, exist_ok=True)
             except OSError as fallback_exc:
-                print(
+                logger.error(
                     "Warning: diagnostics could not be created at the session "
-                    f"location ({exc}) or local fallback ({fallback_exc})."
+                    "location (%s) or local fallback (%s).",
+                    exc,
+                    fallback_exc,
                 )
                 return Path("diagnostics-unavailable")
         windows = list(snapshots)
@@ -389,7 +396,7 @@ class CVSuiteUISupervisor:
                 json.dumps(payload, indent=2), encoding="utf-8"
             )
         except OSError as exc:
-            print(f"Warning: incident text could not be saved: {exc}")
+            logger.exception("Warning: incident text could not be saved: %s", exc)
         for index, window in enumerate(windows, start=1):
             if window.wrapper is None:
                 continue
@@ -408,12 +415,12 @@ class CVSuiteUISupervisor:
     ) -> None:
         windows = list(snapshots) if snapshots is not None else self.snapshots()
         location = self.capture_diagnostics(reason, windows, context)
-        print("\n" + "=" * 70)
-        print("OPERATOR ACTION REQUIRED")
-        print(reason)
-        print(f"Diagnostics: {location}")
-        print("Correct the condition, then return to this window.")
-        print("=" * 70)
+        logger.info("\n%s", "=" * 70)
+        logger.info("OPERATOR ACTION REQUIRED")
+        logger.info("%s", reason)
+        logger.info("Diagnostics: %s", location)
+        logger.info("Correct the condition, then return to this window.")
+        logger.info("%s", "=" * 70)
         self.operator_input("Press ENTER to rescan and continue: ")
         self.focus_main_window()
 

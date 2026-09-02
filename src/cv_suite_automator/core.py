@@ -28,6 +28,7 @@ Example:
 
 import datetime
 import json
+import logging
 import os
 import io
 import re
@@ -54,12 +55,14 @@ from .usb_executable import find_apricorn_devices
 from .utils import *
 
 
+logger = logging.getLogger(__name__)
+
 controller = IOController()              # Initialize controller
 controller.turn_on('power')               # Turn on power (channel 13)
 controller.turn_on('usb3')                # Turn on USB3 (channel 14)
 
-print("Searching for a connected and unlocked Apricorn device...")
-print("Please plug the device into the USB2/3 switchboard and unlock it.")
+logger.info("Searching for a connected and unlocked Apricorn device...")
+logger.info("Please plug the device into the USB2/3 switchboard and unlock it.")
 
 device_handle = None
 while not device_handle:
@@ -181,10 +184,10 @@ class CVSuiteAutomation:
         # Attempt to locate a recognized Apricorn device (custom function).
         self.device = find_apricorn_devices()
         if not self.device:
-            print("No device found.")
+            logger.error("No device found.")
             sys.exit(1)  # Exit if no device is found.
         elif len(self.device) > 2:
-            print("Too many Apricorn devices connected")
+            logger.error("Too many Apricorn devices connected")
             sys.exit(1)  # Exit if no device is found.
         else:
             for dut in range(len(self.device)):
@@ -192,7 +195,7 @@ class CVSuiteAutomation:
                     self.device.pop(dut)
                     break
             if len(self.device) > 1:
-                print("Too many Apricorn devices connected")
+                logger.error("Too many Apricorn devices connected")
                 sys.exit(1)  # Exit if no device is found.
 
         self.device = self.device[0]
@@ -417,15 +420,21 @@ class CVSuiteAutomation:
                             # 3. Check if the session state is correct for latching
                             # (Current OS section must be empty, other OS must not be)
                             if is_current_empty and not is_other_empty:
-                                print(f"Found recent session '{latest_session_id}' from other OS. Latching onto it.")
+                                logger.info(
+                                    "Found recent session '%s' from other OS. Latching onto it.",
+                                    latest_session_id,
+                                )
                                 return latest_session_id
 
                         except (json.JSONDecodeError, IOError):
-                            print(f"Warning: Could not read or parse summary for session '{latest_session_id}'.")
+                            logger.warning(
+                                "Warning: Could not read or parse summary for session '%s'.",
+                                latest_session_id,
+                            )
 
         # If we reach this point, no valid session was found to latch onto.
         # Create a new session.
-        print("No suitable recent session to latch onto. Creating a new test session.")
+        logger.info("No suitable recent session to latch onto. Creating a new test session.")
         print("")
         new_session_id = time.strftime("%Y-%m-%d %H%M", time.localtime())
         new_session_path = os.path.join(base_device_dir, new_session_id)
@@ -473,11 +482,11 @@ class CVSuiteAutomation:
                 last_error = exc
 
             if attempts >= 3 or time.monotonic() >= deadline:
-                print("\n" + "=" * 70)
-                print("OPERATOR ACTION REQUIRED")
-                print(f"Could not connect to CV Suite: {last_error}")
-                print("Start or restore CV Suite, then return to this window.")
-                print("=" * 70)
+                logger.info("\n%s", "=" * 70)
+                logger.info("OPERATOR ACTION REQUIRED")
+                logger.error("Could not connect to CV Suite: %s", last_error)
+                logger.info("Start or restore CV Suite, then return to this window.")
+                logger.info("%s", "=" * 70)
                 input("Press ENTER to retry: ")
                 attempts = 0
                 deadline = time.monotonic() + 60
@@ -561,7 +570,7 @@ class CVSuiteAutomation:
 
             # Check if the dialog is still there. If not, something else happened.
             if not device_list_outer_box.exists():
-                print("Device selection dialog disappeared unexpectedly. Aborting test.")
+                logger.error("Device selection dialog disappeared unexpectedly. Aborting test.")
                 # Exit the method since we can't proceed.
                 return
 
@@ -578,7 +587,10 @@ class CVSuiteAutomation:
                         time.sleep(1) # A short pause for UI to update.
                         device_list_outer_box.child_window(best_match="Ok").click()
                     except Exception as e:
-                        print(f"Error occurred while selecting the device or clicking OK: {e}")
+                        logger.exception(
+                            "Error occurred while selecting the device or clicking OK: %s",
+                            e,
+                        )
                         # Reset device_found to False to ensure the loop retries.
                         device_found = False
                     # Exit the for loop since we've found our device (or tried to).
@@ -587,7 +599,10 @@ class CVSuiteAutomation:
             if not device_found:
                 # If the for loop completes and the device is still not found,
                 # print a message and wait before the while loop tries again.
-                print("DEVICE NOT FOUND. Please ensure the device is unlocked and connected. Retrying in 15 seconds...")
+                logger.warning(
+                    "DEVICE NOT FOUND. Please ensure the device is unlocked and "
+                    "connected. Retrying in 15 seconds..."
+                )
                 time.sleep(15)
                 # The 'while' loop will now repeat the entire check.
 
@@ -661,7 +676,7 @@ class CVSuiteAutomation:
         custom_json_dump(self.test_summary, self.destination_summary_json)
 
         # Print results to console as well.
-        print(f"--- {self.test_list[self.current_test]['name']}: {log_results}")
+        logger.info("--- %s: %s", self.test_list[self.current_test]["name"], log_results)
 
 
     def _dialog_rules(self, test: int) -> list[DialogRule]:
@@ -683,9 +698,13 @@ class CVSuiteAutomation:
         destination = self.test_summary[f'Windows {self.windows_version}'][self.usb_controller_name][f'USB{self.usb_protocol}'][self.test_list[self.current_test]['name']]
         destination[:] = outcome.summary_values()
         custom_json_dump(self.test_summary, self.destination_summary_json)
-        print(f"--- {self.test_list[self.current_test]['name']}: {outcome.summary_values()}")
+        logger.info(
+            "--- %s: %s",
+            self.test_list[self.current_test]["name"],
+            outcome.summary_values(),
+        )
         if outcome.reason:
-            print(f"    {outcome.reason}")
+            logger.info("    %s", outcome.reason)
 
     def _wait_for_device_after_failure(self) -> None:
         context = {
@@ -751,7 +770,7 @@ class CVSuiteAutomation:
             )
             if not outcome.retry_required:
                 break
-            print(f"    {outcome.reason}")
+            logger.info("    %s", outcome.reason)
             self.ui_supervisor.operator_checkpoint(
                 f"DUT VID {self.device.idVendor} / PID {self.device.idProduct} "
                 "was not selected. Unlock that device, then press ENTER. "
@@ -779,4 +798,4 @@ class CVSuiteAutomation:
             if self.main_window is not None and self.main_window.exists(timeout=2):
                 self.main_window.close()
         except Exception as exc:
-            print(f"Warning: CV Suite could not be closed cleanly: {exc}")
+            logger.exception("Warning: CV Suite could not be closed cleanly: %s", exc)

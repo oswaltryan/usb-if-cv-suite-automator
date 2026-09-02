@@ -1,4 +1,13 @@
+import logging
+
+from .logging_config import configure_logging
+
+configure_logging()
+
 from .core import *
+
+
+logger = logging.getLogger(__name__)
 
 """
 Main entry point of the CV Suite automation script.
@@ -22,7 +31,7 @@ Example:
 
 # Check CLI arguments.
 if len(sys.argv) != 2:
-    print("""
+    logger.info("""
 One argument is required for this program:
 1 - (str) Bridge Controller Chipset
     """)
@@ -43,7 +52,7 @@ controller_switched = False
 
 # We loop twice—once for the current usb_controller_name, once after switching to the other.
 for i in range(2):
-    print(f"- {cv_suite.usb_controller_name}")
+    logger.info("- %s", cv_suite.usb_controller_name)
 
     # Start the CV Suite, select the current controller.
     time.sleep(10)
@@ -52,7 +61,7 @@ for i in range(2):
     # We manage USB 2 vs. USB 3 protocols in another loop.
     protocol_switched = False
     for _ in cv_suite.completed_test_list[cv_suite.usb_controller_name]:
-        print(f"-- USB{cv_suite.usb_protocol}")
+        logger.info("-- USB%s", cv_suite.usb_protocol)
 
         # Decide which test to skip depending on the current USB protocol.
         if cv_suite.usb_protocol == 2:
@@ -107,9 +116,12 @@ for i in range(2):
         # controller.turn_on('usb3')
         # controller.turn_on('power')
 
-        print("\n" + "="*70)
-        print(f"ACTION REQUIRED: Please move the device to a '{new_controller_name}' USB port.")
-        print("="*70)
+        logger.info("\n%s", "=" * 70)
+        logger.info(
+            "ACTION REQUIRED: Please move the device to a '%s' USB port.",
+            new_controller_name,
+        )
+        logger.info("%s", "=" * 70)
 
         while True:
             # Use the bundled USB executable to see what's connected.
@@ -142,17 +154,17 @@ other_os_key = f'Windows {10 if cv_suite.windows_version == 11 else 11}'
 is_session_now_complete = not cv_suite._is_os_section_empty(cv_suite.test_summary, other_os_key)
 
 if not is_session_now_complete:
-    print("\n" + "="*70)
-    print(f"OPERATING SYSTEM (Windows {cv_suite.windows_version}) TEST COMPLETE.")
-    print("To finish the test session, please do the following:")
-    print("1. Reboot into the other operating system.")
-    print("2. Run the script again with the same command:")
-    print(f"   python cv_suite_automation.py \"{sys.argv[1]}\"")
-    print("The script will automatically find and continue this session.")
-    print("="*70 + "\n")
+    logger.info("\n%s", "=" * 70)
+    logger.info("OPERATING SYSTEM (Windows %s) TEST COMPLETE.", cv_suite.windows_version)
+    logger.info("To finish the test session, please do the following:")
+    logger.info("1. Reboot into the other operating system.")
+    logger.info("2. Run the script again with the same command:")
+    logger.info('   python cv_suite_automation.py "%s"', sys.argv[1])
+    logger.info("The script will automatically find and continue this session.")
+    logger.info("%s\n", "=" * 70)
 else:
-    print("\n" + "="*70)
-    print("BOTH OPERATING SYSTEMS HAVE BEEN TESTED.")
-    print(f"Test session '{cv_suite.test_datetime}' is now complete.")
-    print(f"Final results are in: {cv_suite.destination_summary_json}")
-    print("="*70 + "\n")
+    logger.info("\n%s", "=" * 70)
+    logger.info("BOTH OPERATING SYSTEMS HAVE BEEN TESTED.")
+    logger.info("Test session '%s' is now complete.", cv_suite.test_datetime)
+    logger.info("Final results are in: %s", cv_suite.destination_summary_json)
+    logger.info("%s\n", "=" * 70)

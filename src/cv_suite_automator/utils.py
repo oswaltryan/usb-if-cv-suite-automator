@@ -1,7 +1,11 @@
 import json
+import logging
 import os
 import shutil
 from typing import Optional
+
+
+logger = logging.getLogger(__name__)
 
 def encode_with_inline_lists(obj, level=0, indent=4):
     """
@@ -95,7 +99,7 @@ def pull_files(
             if not os.path.exists(directory):
                 os.makedirs(directory)
                 if verbose:
-                    print(f"Created directory: {directory}")
+                    logger.info("Created directory: %s", directory)
         except Exception as e:
             raise OSError(f"Failed to create directory {directory}: {e}")
 
@@ -108,7 +112,7 @@ def pull_files(
         ensure_exists(dest)
     except OSError as e:
         if fallback:
-            print(f"Warning: {e}. Falling back to: {fallback}")
+            logger.warning("Warning: %s. Falling back to: %s", e, fallback)
             dest = fallback
             ensure_exists(dest)
         else:
@@ -143,11 +147,11 @@ def pull_files(
                     
                     # Declare moving files if verbose
                     if verbose:
-                        print(f"Moving {src_path} to {dest_file_path}")
+                        logger.info("Moving %s to %s", src_path, dest_file_path)
                     shutil.move(src_path, dest_file_path)
                 
                 except Exception as e:
-                    print(f"Error moving file {file}: {e}")
+                    logger.exception("Error moving file %s: %s", file, e)
 
 
     try:
@@ -159,12 +163,12 @@ def pull_files(
                 # Remove the folder and its contents
                 shutil.rmtree(item_path)
     except Exception as e:
-        print(f"An error occurred deleteing folders from {source}: {e}")
+        logger.exception("An error occurred deleteing folders from %s: %s", source, e)
 
 
 
     if verbose:
-        print(f"Completed organizing HTML files into: {dest}")
+        logger.info("Completed organizing HTML files into: %s", dest)
 
 
 # -----------------------
