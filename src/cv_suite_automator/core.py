@@ -43,7 +43,7 @@ from pywinauto.keyboard import send_keys
 
 # These are local imports in your environment:
 from .hardware import IOController
-from usb_tool import find_apricorn_device
+from .usb_executable import find_apricorn_devices
 from .utils import *
 
 
@@ -57,7 +57,7 @@ print("Please plug the device into the USB2/3 switchboard and unlock it.")
 device_handle = None
 while not device_handle:
     # Attempt to find the device
-    device_handle = find_apricorn_device()
+    device_handle = find_apricorn_devices()
     
     if not device_handle:
         time.sleep(15)
@@ -177,8 +177,8 @@ class CVSuiteAutomation:
         """
         # --- Stage 1: Basic device and environment detection ---
         # Attempt to locate a recognized Apricorn device (custom function).
-        self.device = find_apricorn_device()
-        if self.device is None:
+        self.device = find_apricorn_devices()
+        if not self.device:
             print("No device found.")
             sys.exit(1)  # Exit if no device is found.
         elif len(self.device) > 2:
@@ -296,7 +296,7 @@ class CVSuiteAutomation:
         ]
 
         # Check if device is UASP and update test list accordingly
-        if self.device.SCSIDevice == 'True':
+        if self.device.uses_uasp:
             self.test_list[1].update({
                 "dialog_strings": {
                     1: "Please run Connector Type Tests on this device.",

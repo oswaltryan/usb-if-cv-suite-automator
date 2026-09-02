@@ -69,7 +69,8 @@ Hardware:
 Software:
 - Python 3.12+
 - USB-IF CV Suite installed on both Windows partitions
-- Local dependencies from `wheels/` for offline installs (including `usb-tool`)
+- Local Python dependencies from `wheels/` for offline installs
+- The bundled `usb-windows.exe` device-discovery tool (included with the package)
 
 ## Assumptions
 

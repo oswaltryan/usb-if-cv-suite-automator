@@ -16,7 +16,6 @@ dependencies = [
   "phidget22==1.22.20250714",
   "pywin32==311; platform_system == 'Windows'",
   "pywinauto==0.6.9",
-  "usb-tool==0.1.8",
 ]
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -37,7 +36,7 @@ where = ["src"]
 include = ["cv_suite_automator*"]
 
 [tool.setuptools.package-data]
-cv_suite_automator = ["summary_template.json"]
+cv_suite_automator = ["summary_template.json", "bin/*.exe"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

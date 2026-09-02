@@ -122,12 +122,12 @@ for i in range(2):
         print("="*70)
 
         while True:
-            # Use the find_apricorn_device utility to see what's connected
-            device = find_apricorn_device()
+            # Use the bundled USB executable to see what's connected.
+            device = find_apricorn_devices()
             
             if device:
                 # A device was found. Check if it's on the correct controller.
-                # Note: find_apricorn_device returns a list, so we check the first element.
+                # Device discovery returns a list, so check the first element.
                 detected_controller = device[0].usbController
                 if detected_controller == new_controller_name:
                     print("")
