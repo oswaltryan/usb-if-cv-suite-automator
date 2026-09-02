@@ -9,6 +9,7 @@ from cv_suite_automator.ui_supervisor import (
     WindowSnapshot,
     classify_windows,
     device_item_matches,
+    latest_failed_test_name,
     parse_log_results,
 )
 
@@ -174,6 +175,66 @@ def test_parse_log_results_rejects_missing_counts() -> None:
     assert parse_log_results(["Test complete", "Failures unavailable"]) is None
 
 
+def test_latest_failed_test_name_uses_last_failing_subtest() -> None:
+    name = latest_failed_test_name(
+        [
+            "Stopping Test [ First Test:\n    Number of: Fails (1); Aborts (0) ]",
+            "Stopping Test [ Passing Test:\n    Number of: Fails (0); Aborts (0) ]",
+            "Stopping Test [ Relevant Failure:\n    Number of: Fails (2); Aborts (0) ]",
+        ]
+    )
+
+    assert name == "Relevant Failure"
+
+
+def test_latest_failed_test_name_returns_none_without_failed_subtest() -> None:
+    assert latest_failed_test_name(
+        ["Stopping Test [ Passing Test:\n Number of: Fails (0); Aborts (0) ]"]
+    ) is None
+
+
+def test_failed_tree_item_is_scrolled_into_view_for_diagnostics(tmp_path: Path) -> None:
+    class Log:
+        def texts(self):
+            return [
+                "Stopping Test [ Relevant Failure:\n"
+                " Number of: Fails (1); Aborts (0) ]"
+            ]
+
+    class Item:
+        def __init__(self):
+            self.was_revealed = False
+
+        def text(self):
+            return "Relevant Failure"
+
+        def sub_elements(self):
+            return []
+
+        def ensure_visible(self):
+            self.was_revealed = True
+
+    item = Item()
+
+    class Tree:
+        def friendly_class_name(self):
+            return "TreeView"
+
+        def roots(self):
+            return [item]
+
+    class Main:
+        def descendants(self):
+            return [Tree()]
+
+    supervisor = CVSuiteUISupervisor(
+        EmptyApp(), None, Log(), tmp_path, [], operator_input=lambda _: ""
+    )
+
+    assert supervisor._reveal_failed_test(Main()) is True
+    assert item.was_revealed is True
+
+
 class EmptyApp:
     def windows(self):
         return []
@@ -263,6 +324,37 @@ def test_diagnostics_are_written_when_screenshot_is_unavailable(tmp_path: Path) 
     assert "unknown popup" in content
     assert "Unexpected" in content
     assert '"test": 6' in content
+
+
+def test_diagnostics_do_not_capture_hidden_helper_windows(tmp_path: Path) -> None:
+    class SavedImage:
+        def save(self, path):
+            Path(path).write_bytes(b"image")
+
+    class CapturableWindow:
+        def __init__(self):
+            self.capture_count = 0
+
+        def capture_as_image(self):
+            self.capture_count += 1
+            return SavedImage()
+
+    visible_wrapper = CapturableWindow()
+    hidden_wrapper = CapturableWindow()
+    visible = window("USB 3 Gen X Command Verifier", visible=True)
+    visible.wrapper = visible_wrapper
+    hidden = window("", visible=False)
+    hidden.wrapper = hidden_wrapper
+    supervisor = CVSuiteUISupervisor(
+        EmptyApp(), None, EmptyLog(), tmp_path, [], operator_input=lambda _: ""
+    )
+
+    incident = supervisor.capture_diagnostics("failure", [visible, hidden])
+
+    assert visible_wrapper.capture_count == 1
+    assert hidden_wrapper.capture_count == 0
+    assert (incident / "window-1.png").exists()
+    assert not (incident / "window-2.png").exists()
 
 
 def test_safe_action_is_retried_before_operator_escalation(tmp_path: Path) -> None:

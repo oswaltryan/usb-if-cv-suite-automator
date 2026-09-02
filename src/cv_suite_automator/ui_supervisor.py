@@ -180,6 +180,18 @@ def parse_log_results(lines: Iterable[str]) -> TestOutcome | None:
     return None
 
 
+def latest_failed_test_name(lines: Iterable[str]) -> str | None:
+    """Return the most recent named subtest whose stop record reports failures."""
+    log_text = "\n".join(lines)
+    pattern = re.compile(
+        r"Stopping Test\s*\[\s*(.+?):\s*\r?\n\s*"
+        r"Number of:\s*Fails\s*\(([1-9]\d*)\)",
+        re.IGNORECASE,
+    )
+    matches = pattern.findall(log_text)
+    return matches[-1][0].strip() if matches else None
+
+
 def device_item_matches(item: str, vendor_id: str, product_id: str) -> bool:
     """Return whether a CV Suite list item identifies the exact DUT."""
     vendor_id = vendor_id.casefold().removeprefix("0x")
@@ -397,15 +409,46 @@ class CVSuiteUISupervisor:
             )
         except OSError as exc:
             logger.exception("Warning: incident text could not be saved: %s", exc)
-        for index, window in enumerate(windows, start=1):
+        visible_windows = [window for window in windows if window.visible]
+        for index, window in enumerate(visible_windows, start=1):
             if window.wrapper is None:
                 continue
             try:
+                if window.is_main_window:
+                    self._reveal_failed_test(window.wrapper)
                 image = window.wrapper.capture_as_image()
                 image.save(incident_dir / f"window-{index}.png")
             except Exception:
                 pass
         return incident_dir
+
+    def _reveal_failed_test(self, main_window: Any) -> bool:
+        """Best-effort scroll of the CV Suite test tree before a screenshot."""
+        failed_name = latest_failed_test_name(self._log_lines())
+        if not failed_name:
+            return False
+        expected = " ".join(failed_name.split()).casefold()
+
+        try:
+            controls = main_window.descendants()
+        except Exception:
+            return False
+        for control in controls:
+            try:
+                if control.friendly_class_name() != "TreeView":
+                    continue
+                items = []
+                for root in control.roots():
+                    items.append(root)
+                    items.extend(root.sub_elements())
+                for item in items:
+                    actual = " ".join(item.text().split()).casefold()
+                    if actual == expected or expected in actual or actual in expected:
+                        item.ensure_visible()
+                        return True
+            except Exception:
+                continue
+        return False
 
     def operator_checkpoint(
         self,
