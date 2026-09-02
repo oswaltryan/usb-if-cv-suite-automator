@@ -35,6 +35,7 @@ import sys
 import time
 import shutil
 import platform
+from pathlib import Path
 
 from contextlib import redirect_stdout
 from pprint import pprint
@@ -43,6 +44,12 @@ from pywinauto.keyboard import send_keys
 
 # These are local imports in your environment:
 from .hardware import IOController
+from .ui_supervisor import (
+    CVSuiteUISupervisor,
+    DialogRule,
+    LOG_CONTROL_ID,
+    TestOutcome,
+)
 from .usb_executable import find_apricorn_devices
 from .utils import *
 
@@ -151,13 +158,9 @@ class CVSuiteAutomation:
             Launches the CV Suite application, selects the USB controller,
             and confirms the selection via a popup dialog.
 
-        select_test(test: int):
-            Selects a test by ID in the CV Suite ListBox and sets up
-            the test description in the UI.
-
-        clear_dialog_boxes(test: int):
-            Looks for CV Suite dialog boxes related to the currently running
-            test, clicks through them, and processes the results.
+        run_test(test: int):
+            Starts and supervises a test, handles its dialogs in any order,
+            and records its result.
 
         close_cv_suite():
             Closes the CV Suite main window.
@@ -165,8 +168,7 @@ class CVSuiteAutomation:
     Example:
         cv_suite = CVSuiteAutomation()
         cv_suite.start_cv_suite()
-        cv_suite.select_test(6)
-        cv_suite.clear_dialog_boxes(6)
+        cv_suite.run_test(6)
         cv_suite.close_cv_suite()
     """
 
@@ -243,6 +245,7 @@ class CVSuiteAutomation:
         self.app = None
         self.main_window = None
         self.log_window = None
+        self.ui_supervisor = None
         self.current_test = None
 
         # List of tests we might execute.
@@ -446,35 +449,69 @@ class CVSuiteAutomation:
         # Launch the application using its .lnk desktop shortcut.
         shortcut = f"C:\\Users\\{self.windows_user_name}\\Desktop\\USB3CV - USB 3 Gen X.lnk"
         os.startfile(shortcut)
-        time.sleep(1)  # Short pause to allow the app to start.
+        # Preserve the foreground handoff that CV Suite needs during startup.
+        time.sleep(1)
 
-        # Connect to the application and get references to key windows/controls.
-        self.app = Application().connect(title=r"USB 3 Gen X Command Verifier")
-        self.main_window = self.app.window(best_match=r"USB 3 Gen X Command Verifier")
-        self.log_window = self.main_window.child_window(best_match="Edit2")
-
-        # Select the USB controller index in the ListBox UI.
-        list_box = self.main_window.child_window(best_match="ListBox")
-        list_box.select(self.usb_controller)
-
-        # Press 'Continue' to proceed.
-        self.main_window.child_window(best_match="Continue").click()
-
-        # Wait for the "confirm host controller" prompt and press 'Continue' there as well.
+        attempts = 0
+        deadline = time.monotonic() + 60
+        last_error = "CV Suite did not become available"
         while True:
-            if self.main_window.exists():
-                output = io.StringIO()
-                with redirect_stdout(output):
-                    try:
-                        self.main_window.print_control_identifiers()
-                    except:
-                        pass
-                window_test = output.getvalue()
-                target_string = "Do you want to continue with the host controller you have selected?"
-                if target_string in window_test:
-                    time.sleep(1)
-                    self.main_window.child_window(best_match="Continue").click()
+            try:
+                self.app = Application().connect(
+                    title=r"USB 3 Gen X Command Verifier", timeout=5
+                )
+                self.main_window = self.app.window(
+                    best_match=r"USB 3 Gen X Command Verifier"
+                )
+                self.log_window = self.main_window.child_window(
+                    control_id=LOG_CONTROL_ID
+                )
+                if self.main_window.exists(timeout=2):
                     break
+            except Exception as exc:
+                attempts += 1
+                last_error = exc
+
+            if attempts >= 3 or time.monotonic() >= deadline:
+                print("\n" + "=" * 70)
+                print("OPERATOR ACTION REQUIRED")
+                print(f"Could not connect to CV Suite: {last_error}")
+                print("Start or restore CV Suite, then return to this window.")
+                print("=" * 70)
+                input("Press ENTER to retry: ")
+                attempts = 0
+                deadline = time.monotonic() + 60
+            time.sleep(1)
+
+        self.ui_supervisor = CVSuiteUISupervisor(
+            self.app,
+            self.main_window,
+            self.log_window,
+            Path(self.session_dir) / "diagnostics",
+            self.failure_messages,
+        )
+        self.ui_supervisor.focus_main_window()
+
+        def select_controller():
+            list_box = self.main_window.child_window(best_match="ListBox")
+            list_box.wait("exists enabled visible ready", timeout=20)
+            list_box.select(self.usb_controller)
+            continue_button = self.main_window.child_window(best_match="Continue")
+            continue_button.wait("exists enabled visible ready", timeout=20)
+            continue_button.click()
+
+        self.ui_supervisor.perform_action(
+            select_controller, "host controller selection"
+        )
+
+        self.ui_supervisor.wait_for_text_and_click(
+            "Do you want to continue with the host controller you have selected?",
+            "Continue",
+            "host controller confirmation",
+        )
+        self.ui_supervisor.wait_for_main_window("host controller confirmation")
+        self.main_window = self.ui_supervisor.main_window
+        self.log_window = self.ui_supervisor.log_window
 
 
     def select_test(self, test: int):
@@ -493,6 +530,9 @@ class CVSuiteAutomation:
             - Waits for the device selection dialog and repeatedly attempts to find and
             select the correct device until successful.
         """
+        # Compatibility entry point for callers using the former two-step API.
+        return self.run_test(test)
+
         # Select the specified test from the CV Suite main window's ListBox.
         test_list_box = self.main_window.child_window(best_match="ListBox")
         test_list_box.select(test)
@@ -567,6 +607,9 @@ class CVSuiteAutomation:
             - Records the test outcome (Pass/Fail) into self.test_summary and writes
               to summary.json.
         """
+        # Dialogs are now consumed by run_test/select_test.
+        return None
+
         # For each dialog prompt in the test definition, wait for it and press the correct button.
         for key, value in self.test_list[test]["dialog_strings"].items():
             button_text = "OK"
@@ -621,6 +664,92 @@ class CVSuiteAutomation:
         print(f"--- {self.test_list[self.current_test]['name']}: {log_results}")
 
 
+    def _dialog_rules(self, test: int) -> list[DialogRule]:
+        rules = []
+        for key, text in self.test_list[test]["dialog_strings"].items():
+            button = "OK"
+            if test == 3 and key == 2:
+                button = "Yes"
+            elif test == 21 and key == 3:
+                button = "No"
+            rules.append(DialogRule(key=key, text=text, button=button))
+        return rules
+
+    def _record_test_outcome(self, outcome: TestOutcome) -> None:
+        completed = self.completed_test_list[self.usb_controller_name][self.usb_protocol]
+        if self.current_test not in completed:
+            completed.append(self.current_test)
+
+        destination = self.test_summary[f'Windows {self.windows_version}'][self.usb_controller_name][f'USB{self.usb_protocol}'][self.test_list[self.current_test]['name']]
+        destination[:] = outcome.summary_values()
+        custom_json_dump(self.test_summary, self.destination_summary_json)
+        print(f"--- {self.test_list[self.current_test]['name']}: {outcome.summary_values()}")
+        if outcome.reason:
+            print(f"    {outcome.reason}")
+
+    def _wait_for_device_after_failure(self) -> None:
+        context = {
+            "phase": "failure recovery",
+            "test": self.current_test,
+            "controller": self.usb_controller_name,
+            "protocol": self.usb_protocol,
+        }
+        # CV Suite may leave its compliance driver applied after a failure. In
+        # that state usb-windows.exe cannot see the DUT, so operator
+        # acknowledgement is deliberately the recovery authority.
+        self.ui_supervisor.operator_checkpoint(
+            "The test failed. Power-cycle and unlock the DUT, then press ENTER.",
+            context=context,
+        )
+
+    def run_test(self, test: int) -> TestOutcome:
+        """Start, supervise, record, and recover a single CV Suite test."""
+        if self.ui_supervisor is None:
+            raise RuntimeError("CV Suite UI supervisor has not been initialized.")
+
+        # The supervisor may have reconnected after an operator restarted CV Suite.
+        self.app = self.ui_supervisor.app
+        self.main_window = self.ui_supervisor.main_window
+        self.log_window = self.ui_supervisor.log_window
+
+        def start_test():
+            baseline = tuple(self.log_window.texts())
+            test_list_box = self.main_window.child_window(control_id=1001)
+            test_list_box.wait("exists enabled visible ready", timeout=20)
+            test_list_box.select(test)
+            # CV Suite has multiple Edit controls. ID 1026 is the visible
+            # Optional Test Description field; fuzzy matching selects a hidden
+            # RichEdit control on this screen.
+            test_description = self.main_window.child_window(control_id=1026)
+            test_description.wait("exists enabled visible ready", timeout=20)
+            test_description.set_focus()
+            if (len(self.completed_test_list[self.usb_controller_name][2]) == 0
+                    and len(self.completed_test_list[self.usb_controller_name][3]) == 0):
+                send_keys(self.test_description_input, with_spaces=True)
+            run_button = self.main_window.child_window(control_id=1013)
+            run_button.wait("exists enabled visible ready", timeout=20)
+            run_button.click()
+            return baseline
+
+        baseline_log = self.ui_supervisor.perform_action(
+            start_test, "test launch", {"test": test}
+        )
+
+        context = {
+            "phase": "test execution",
+            "test": test,
+            "test_name": self.test_list[test]["name"],
+            "controller": self.usb_controller_name,
+            "protocol": self.usb_protocol,
+        }
+        outcome = self.ui_supervisor.monitor_test(
+            self._dialog_rules(test), self.device.idVendor, context, baseline_log
+        )
+        self._record_test_outcome(outcome)
+        if outcome.failed:
+            self._wait_for_device_after_failure()
+        return outcome
+
     def close_cv_suite(self):
         """
         Closes the CV Suite application’s main window.
@@ -629,4 +758,10 @@ class CVSuiteAutomation:
         if the script ends or if we switch controllers/protocols.
         """
         time.sleep(1)
-        self.main_window.close()
+        if self.ui_supervisor is not None:
+            self.main_window = self.ui_supervisor.main_window
+        try:
+            if self.main_window is not None and self.main_window.exists(timeout=2):
+                self.main_window.close()
+        except Exception as exc:
+            print(f"Warning: CV Suite could not be closed cleanly: {exc}")

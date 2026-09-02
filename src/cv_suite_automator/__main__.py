@@ -66,17 +66,7 @@ for i in range(2):
                 continue
 
             cv_suite.current_test = key
-            cv_suite.select_test(test=key)
-            cv_suite.clear_dialog_boxes(test=key)
-
-            # Check for certain known failure messages.
-            for items in cv_suite.failure_messages:
-                confirm_DUT_presence = cv_suite.main_window.child_window(best_match='Validating')
-                if not confirm_DUT_presence:
-                    print("\nTest Information:")
-                    print("test_datetime", cv_suite.test_datetime)
-                    print("test_description_input", cv_suite.test_description_input)
-                    print("completed_test_list", cv_suite.completed_test_list)
+            cv_suite.run_test(test=key)
 
         # Move or copy the test reports to our designated folder structure.
         pull_files(

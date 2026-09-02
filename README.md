@@ -50,6 +50,16 @@ Each OS pass runs a fixed controller/protocol matrix (ASMedia + Intel, USB2 + US
 
 The relay layer (`Phidget22`) controls switchboard channels used during automation (`power`, `usb3`). This allows software-driven state changes where possible and reduces manual handling to the minimum required physical actions.
 
+### Fault-tolerant UI supervision
+
+CV Suite windows are monitored as events instead of being assumed to appear in
+a fixed order. Recognized failures are recorded immediately, delayed controls
+are retried, and unknown popups are preserved for operator review. Intervention
+checkpoints save screenshots and control text under the active session's
+`diagnostics` directory and wait for an explicit Enter acknowledgement.
+After a failed test, that acknowledgement is authoritative because CV Suite's
+compliance driver can prevent the bundled USB discovery tool from seeing the DUT.
+
 ### 4. Structured artifact model for reviewability
 
 Reports are pulled into a stable hierarchy under `M:\USB-IF Results\...`, and pass/fail metadata is written into session summary JSON. The output layout is designed for fast triage, rerun tracking, and qualification evidence packaging.
