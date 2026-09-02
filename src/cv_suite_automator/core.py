@@ -11,11 +11,8 @@ Classes:
         application, selecting USB controllers, executing tests, and
         handling test dialogs.
 
-Functions:
-    pull_files:
-        A utility function to copy or move generated CV Suite files from
-        the source directory to a designated destination (imported from
-        `organizer`).
+Report files are collected by the entry point after each automated test and
+transferred only when they can be attributed to the current run.
 
 Usage:
     Run the script with the following argument:

@@ -136,6 +136,11 @@ Each session stores:
 - Per-controller and per-protocol report splits (ASMedia/Intel, USB2/USB3)
 - A `summary.json` file that tracks completion and pass/fail outcomes
 
+The automator tracks reports created by each automated test, verifies an
+external backup, and retains another copy under the CV Suite output directory
+using the same device/session/OS/controller/protocol hierarchy. Existing CV
+Suite output, including reports from manual runs, is left untouched.
+
 ## Development checks
 
 Run fast unit tests (no hardware required):

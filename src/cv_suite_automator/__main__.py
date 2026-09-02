@@ -5,6 +5,7 @@ from .logging_config import configure_logging
 configure_logging()
 
 from .core import *
+from .report_collector import ReportCollector, ReportTransferError
 
 
 logger = logging.getLogger(__name__)
@@ -62,6 +63,7 @@ for i in range(2):
     protocol_switched = False
     for _ in cv_suite.completed_test_list[cv_suite.usb_controller_name]:
         logger.info("-- USB%s", cv_suite.usb_protocol)
+        report_collector = ReportCollector(cv_suite.source_reports_dir)
 
         # Decide which test to skip depending on the current USB protocol.
         if cv_suite.usb_protocol == 2:
@@ -75,14 +77,44 @@ for i in range(2):
                 continue
 
             cv_suite.current_test = key
-            cv_suite.run_test(test=key)
+            report_snapshot = report_collector.snapshot()
+            try:
+                cv_suite.run_test(test=key)
+            finally:
+                report_collector.capture_since(report_snapshot)
 
-        # Move or copy the test reports to our designated folder structure.
-        pull_files(
-            source=cv_suite.source_reports_dir,
-            dest=f"{cv_suite.destination_reports_dir}\\{cv_suite.usb_controller_name}\\USB{cv_suite.usb_protocol}",
-            fallback=f"C:\\Users\\{cv_suite.windows_user_name}\\Desktop\\CV Reports"
+        # Move only reports produced by the automated tests in this protocol.
+        report_destination = (
+            f"{cv_suite.destination_reports_dir}\\{cv_suite.usb_controller_name}"
+            f"\\USB{cv_suite.usb_protocol}"
         )
+        report_fallback = (
+            f"C:\\Users\\{cv_suite.windows_user_name}\\Desktop\\CV Reports"
+        )
+        report_relative_destination = Path(report_destination).relative_to(
+            Path(cv_suite.destination_drive)
+        )
+        report_archive = (
+            Path(cv_suite.source_reports_dir) / report_relative_destination
+        )
+        while True:
+            try:
+                report_collector.transfer(
+                    report_destination,
+                    report_archive,
+                    report_fallback,
+                )
+                break
+            except ReportTransferError as exc:
+                cv_suite.ui_supervisor.operator_checkpoint(
+                    "Could not safely back up CV Suite reports: "
+                    f"{exc}. Correct the storage condition, then press ENTER.",
+                    context={
+                        "phase": "report transfer",
+                        "controller": cv_suite.usb_controller_name,
+                        "protocol": cv_suite.usb_protocol,
+                    },
+                )
 
         # Switch from USB2 to USB3 or vice versa after the first set of tests.
         if not protocol_switched:

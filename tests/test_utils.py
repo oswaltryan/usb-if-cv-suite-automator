@@ -2,9 +2,7 @@ import shutil
 import uuid
 from pathlib import Path
 
-import pytest
-
-from cv_suite_automator.utils import custom_json_dump, encode_with_inline_lists, pull_files
+from cv_suite_automator.utils import custom_json_dump, encode_with_inline_lists
 
 
 def _new_scratch_dir() -> Path:
@@ -35,36 +33,5 @@ def test_custom_json_dump_writes_expected_shape() -> None:
 
         assert '"Device Summary": [1, 1]' in written
         assert "\n    " in written
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
-
-
-def test_pull_files_moves_html_and_cleans_nested_directories() -> None:
-    scratch = _new_scratch_dir()
-    source = scratch / "source"
-    nested = source / "nested"
-    nested.mkdir(parents=True)
-    (nested / "report.html").write_text("<html>ok</html>", encoding="utf-8")
-    (nested / "notes.txt").write_text("ignore", encoding="utf-8")
-
-    destination = scratch / "dest"
-
-    try:
-        pull_files(source=str(source), dest=str(destination))
-
-        assert (destination / "report.html").exists()
-        assert not nested.exists()
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
-
-
-def test_pull_files_raises_for_missing_source() -> None:
-    scratch = _new_scratch_dir()
-    try:
-        with pytest.raises(ValueError, match="Source directory does not exist"):
-            pull_files(
-                source=str(scratch / "does-not-exist"),
-                dest=str(scratch / "dest"),
-            )
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
