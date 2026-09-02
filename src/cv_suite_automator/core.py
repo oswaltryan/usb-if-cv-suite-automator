@@ -731,10 +731,6 @@ class CVSuiteAutomation:
             run_button.click()
             return baseline
 
-        baseline_log = self.ui_supervisor.perform_action(
-            start_test, "test launch", {"test": test}
-        )
-
         context = {
             "phase": "test execution",
             "test": test,
@@ -742,9 +738,28 @@ class CVSuiteAutomation:
             "controller": self.usb_controller_name,
             "protocol": self.usb_protocol,
         }
-        outcome = self.ui_supervisor.monitor_test(
-            self._dialog_rules(test), self.device.idVendor, context, baseline_log
-        )
+        while True:
+            baseline_log = self.ui_supervisor.perform_action(
+                start_test, "test launch", {"test": test}
+            )
+            outcome = self.ui_supervisor.monitor_test(
+                self._dialog_rules(test),
+                self.device.idVendor,
+                self.device.idProduct,
+                context,
+                baseline_log,
+            )
+            if not outcome.retry_required:
+                break
+            print(f"    {outcome.reason}")
+            self.ui_supervisor.operator_checkpoint(
+                f"DUT VID {self.device.idVendor} / PID {self.device.idProduct} "
+                "was not selected. Unlock that device, then press ENTER. "
+                "The test will be reselected so CV Suite rescans the bus.",
+                context=context,
+            )
+            self.ui_supervisor.prepare_for_test_retry(context)
+
         self._record_test_outcome(outcome)
         if outcome.failed:
             self._wait_for_device_after_failure()

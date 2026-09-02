@@ -75,6 +75,10 @@ class TestOutcome:
     def failed(self) -> bool:
         return self.status == "Fail"
 
+    @property
+    def retry_required(self) -> bool:
+        return self.status == "Retry"
+
     def summary_values(self) -> list[int | str | None]:
         return [self.tests_run, self.failures, self.status]
 
@@ -171,6 +175,20 @@ def parse_log_results(lines: Iterable[str]) -> TestOutcome | None:
                 "Pass" if failures == 0 else "Fail",
             )
     return None
+
+
+def device_item_matches(item: str, vendor_id: str, product_id: str) -> bool:
+    """Return whether a CV Suite list item identifies the exact DUT."""
+    vendor_id = vendor_id.casefold().removeprefix("0x")
+    product_id = product_id.casefold().removeprefix("0x")
+    vid = re.search(r"\bvid\s*[:=_-]?\s*(?:0x)?([0-9a-f]{4})\b", item, re.I)
+    pid = re.search(r"\bpid\s*[:=_-]?\s*(?:0x)?([0-9a-f]{4})\b", item, re.I)
+    return bool(
+        vid
+        and pid
+        and vid.group(1).casefold() == vendor_id
+        and pid.group(1).casefold() == product_id
+    )
 
 
 class CVSuiteUISupervisor:
@@ -454,7 +472,9 @@ class CVSuiteUISupervisor:
                 deadline = time.monotonic() + 60
             time.sleep(self.poll_interval)
 
-    def select_device(self, window: WindowSnapshot, vendor_id: str) -> bool:
+    def select_device(
+        self, window: WindowSnapshot, vendor_id: str, product_id: str
+    ) -> bool:
         current = self._find_current(window)
         if current is None:
             return False
@@ -462,7 +482,7 @@ class CVSuiteUISupervisor:
             window_spec = self.app.window(handle=current.handle)
             list_box = window_spec.child_window(best_match="ListBox")
             for index, item in enumerate(list_box.texts()):
-                if vendor_id.casefold() in item.casefold():
+                if device_item_matches(item, vendor_id, product_id):
                     list_box.select(max(0, index - 1))
                     self.click_button(current, "Ok", "device selection")
                     return True
@@ -470,10 +490,89 @@ class CVSuiteUISupervisor:
             return False
         return False
 
+
+    def dismiss_window(self, window: WindowSnapshot, phase: str) -> None:
+        """Close a modal without accepting its current selection or result."""
+        for candidate in ("Cancel", "Abort", "Close", "OK"):
+            for button in window.buttons:
+                if button.replace("&", "").strip().casefold() == candidate.casefold():
+                    self.click_button(window, button, phase)
+                    return
+        current = self._find_current(window)
+        if current is not None:
+            try:
+                self.app.window(handle=current.handle).close()
+            except Exception:
+                pass
+
+    def _retry_missing_dut(
+        self,
+        window: WindowSnapshot,
+        context: dict[str, Any],
+        reason: str,
+    ) -> TestOutcome:
+        location = self.capture_diagnostics(reason, self.snapshots(), context)
+        self.dismiss_window(window, "invalid device-selection attempt")
+        return TestOutcome(
+            None,
+            None,
+            "Retry",
+            f"{reason}; diagnostics saved to {location}",
+        )
+
+    def prepare_for_test_retry(self, context: dict[str, Any]) -> None:
+        """Dismiss residue from an abandoned selection and restore the main UI."""
+        deadline = time.monotonic() + 60
+        while True:
+            windows = self.snapshots()
+            blocking = [
+                window for window in windows
+                if window.visible and not window.is_main_window and window.title
+            ]
+            for window in blocking:
+                if (
+                    window.title.casefold() == RESULTS_WINDOW_TITLE.casefold()
+                    or window.title.casefold() == COMMAND_DIALOG_TITLE.casefold()
+                    or re.search(r"\b(error|failure|failed)\b", window.title, re.I)
+                ):
+                    self.dismiss_window(window, "selection retry cleanup")
+                    break
+            else:
+                main = next(
+                    (
+                        window for window in windows
+                        if window.is_main_window and window.visible and window.enabled
+                    ),
+                    None,
+                )
+                if main is not None:
+                    self.main_window = self.app.window(handle=main.handle)
+                    self.log_window = self.main_window.child_window(
+                        control_id=LOG_CONTROL_ID
+                    )
+                    self.focus_main_window()
+                    return
+                if blocking:
+                    self.operator_checkpoint(
+                        f"Cannot retry while '{blocking[0].title}' is blocking CV Suite.",
+                        windows,
+                        context,
+                    )
+
+            if time.monotonic() >= deadline:
+                self.operator_checkpoint(
+                    "CV Suite did not return to its main window for test reselection.",
+                    windows,
+                    context,
+                )
+                deadline = time.monotonic() + 60
+            time.sleep(self.poll_interval)
+
     def monitor_test(
         self,
         rules: Iterable[DialogRule],
         vendor_id: str,
+        product_id: str,
         context: dict[str, Any],
         baseline_log: tuple[str, ...] = (),
     ) -> TestOutcome:
@@ -482,7 +581,6 @@ class CVSuiteUISupervisor:
         device_selected = False
         last_signature = ""
         last_progress = time.monotonic()
-        device_deadline = time.monotonic() + 60
         unknown_signature = ""
         unknown_since = 0.0
 
@@ -504,6 +602,12 @@ class CVSuiteUISupervisor:
                 last_progress = time.monotonic()
 
             if event.kind is EventKind.FAILURE:
+                if not device_selected and event.window is not None:
+                    return self._retry_missing_dut(
+                        event.window,
+                        context,
+                        "CV Suite failed before the exact DUT was selected",
+                    )
                 location = self.capture_diagnostics(event.reason, windows, context)
                 if event.window is not None:
                     safe_buttons = {"ok", "close"}
@@ -527,6 +631,12 @@ class CVSuiteUISupervisor:
                 )
 
             if event.kind is EventKind.RESULTS and event.window is not None:
+                if not device_selected:
+                    return self._retry_missing_dut(
+                        event.window,
+                        context,
+                        "CV Suite produced results before the exact DUT was selected",
+                    )
                 result_deadline = time.monotonic() + 10
                 current_log = self._log_lines()
                 while tuple(current_log) == baseline_log and time.monotonic() < result_deadline:
@@ -559,17 +669,16 @@ class CVSuiteUISupervisor:
                 continue
 
             if event.kind is EventKind.DEVICE_SELECTION and event.window:
-                if self.select_device(event.window, vendor_id):
+                if self.select_device(event.window, vendor_id, product_id):
                     device_selected = True
                     last_progress = time.monotonic()
                     continue
-                if time.monotonic() >= device_deadline:
-                    self.operator_checkpoint(
-                        "The DUT was not available in the CV Suite device list.",
-                        windows,
-                        context,
-                    )
-                    device_deadline = time.monotonic() + 60
+                return self._retry_missing_dut(
+                    event.window,
+                    context,
+                    f"DUT VID {vendor_id} / PID {product_id} was not available "
+                    "in the CV Suite device list",
+                )
 
             elif event.kind is EventKind.UNKNOWN:
                 signature = repr((event.window.title, event.window.texts))

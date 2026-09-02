@@ -8,6 +8,7 @@ from cv_suite_automator.ui_supervisor import (
     EventKind,
     WindowSnapshot,
     classify_windows,
+    device_item_matches,
     parse_log_results,
 )
 
@@ -241,10 +242,13 @@ class SequenceSupervisor(CVSuiteUISupervisor):
     def click_button(self, window, button, phase):
         self.clicked.append((window.title, button, phase))
 
-    def select_device(self, window, vendor_id):
+    def select_device(self, window, vendor_id, product_id):
         return True
 
     def wait_for_main_window(self, phase):
+        return None
+
+    def prepare_for_test_retry(self, context):
         return None
 
 
@@ -320,7 +324,7 @@ def test_monitor_drives_device_prompt_and_result_sequence(tmp_path: Path) -> Non
 
     outcome = supervisor.monitor_test(
         [DialogRule(1, "First"), DialogRule(2, "Second", "Yes")],
-        "0984", {"test": 3}, baseline_log=("old",),
+        "0984", "1410", {"test": 3}, baseline_log=("old",),
     )
 
     assert outcome.summary_values() == [4, 0, "Pass"]
@@ -329,13 +333,46 @@ def test_monitor_drives_device_prompt_and_result_sequence(tmp_path: Path) -> Non
 
 
 def test_monitor_failure_preempts_and_returns_null_count_failure(tmp_path: Path) -> None:
+    device = window(
+        "USB Command Verifier (xHCI - USB 3)", "Select device",
+        has_list_box=True,
+    )
     failure = window("Failure Details", "The test failed", buttons=("OK",))
-    supervisor = SequenceSupervisor(tmp_path, [[failure]], [])
+    supervisor = SequenceSupervisor(tmp_path, [[device], [failure]], [])
 
-    outcome = supervisor.monitor_test([], "0984", {"test": 6})
+    outcome = supervisor.monitor_test([], "0984", "1410", {"test": 6})
 
     assert outcome.summary_values() == [None, None, "Fail"]
     assert supervisor.clicked == [
         (failure.title, "OK", "failure acknowledgement")
     ]
     assert list(tmp_path.glob("*/incident.json"))
+
+
+@pytest.mark.parametrize(
+    "item",
+    [
+        "VID=0984, PID=1410",
+        "USB\\VID_0984&PID_1410",
+        "VID: 0984 PID: 1410 Apricorn",
+    ],
+)
+def test_device_item_requires_exact_vid_and_pid(item: str) -> None:
+    assert device_item_matches(item, "0984", "1410")
+    assert not device_item_matches(item, "0984", "1411")
+
+
+def test_results_before_device_selection_can_never_report_pass(tmp_path: Path) -> None:
+    results = window("Results", buttons=("OK",))
+    supervisor = SequenceSupervisor(
+        tmp_path, [[results]], ["Tests run (4), Failures (0)"]
+    )
+
+    outcome = supervisor.monitor_test(
+        [], "0984", "1410", {"test": 3}, baseline_log=("old",)
+    )
+
+    assert outcome.retry_required
+    assert outcome.tests_run is None
+    assert outcome.failures is None
+    assert (results.title, "OK", "invalid device-selection attempt") in supervisor.clicked
