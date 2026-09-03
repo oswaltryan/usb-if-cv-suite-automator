@@ -4,10 +4,16 @@ from __future__ import annotations
 
 import logging
 import sys
+from datetime import datetime
 from types import TracebackType
 
 
 _HANDLER_MARKER = "cv_suite_automator_console"
+
+
+def timestamped_prompt(message: str) -> str:
+    """Format an interactive input prompt like an ordinary log line."""
+    return f"[{datetime.now():%Y-%m-%d %H:%M:%S}] {message}"
 
 
 def _log_unhandled_exception(
