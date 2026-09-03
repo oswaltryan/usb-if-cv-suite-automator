@@ -1,0 +1,152 @@
+version = 1
+revision = 3
+requires-python = ">=3.12"
+
+[[package]]
+name = "colorama"
+version = "0.4.6"
+source = { registry = "wheels" }
+wheels = [
+    { path = "colorama-0.4.6-py2.py3-none-any.whl" },
+]
+
+[[package]]
+name = "comtypes"
+version = "1.4.11"
+source = { registry = "wheels" }
+wheels = [
+    { path = "comtypes-1.4.11-py3-none-any.whl" },
+]
+
+[[package]]
+name = "cv-suite-automator"
+version = "0.2.1"
+source = { editable = "." }
+dependencies = [
+    { name = "comtypes" },
+    { name = "phidget22" },
+    { name = "pillow" },
+    { name = "pywin32", marker = "sys_platform == 'win32'" },
+    { name = "pywinauto" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "comtypes", specifier = "==1.4.11" },
+    { name = "phidget22", specifier = "==1.22.20250714" },
+    { name = "pillow", specifier = ">=10.0" },
+    { name = "pywin32", marker = "sys_platform == 'win32'", specifier = "==311" },
+    { name = "pywinauto", specifier = "==0.6.9+usbif.1" },
+]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=8.0.0" }]
+
+[[package]]
+name = "iniconfig"
+version = "2.3.0"
+source = { registry = "wheels" }
+wheels = [
+    { path = "iniconfig-2.3.0-py3-none-any.whl" },
+]
+
+[[package]]
+name = "packaging"
+version = "26.3"
+source = { registry = "wheels" }
+wheels = [
+    { path = "packaging-26.3-py3-none-any.whl" },
+]
+
+[[package]]
+name = "phidget22"
+version = "1.22.20250714"
+source = { registry = "wheels" }
+wheels = [
+    { path = "phidget22-1.22.20250714-py3-none-win_amd64.whl" },
+]
+
+[[package]]
+name = "pillow"
+version = "12.3.0"
+source = { registry = "wheels" }
+wheels = [
+    { path = "pillow-12.3.0-cp312-cp312-win_amd64.whl" },
+]
+
+[[package]]
+name = "pluggy"
+version = "1.6.0"
+source = { registry = "wheels" }
+wheels = [
+    { path = "pluggy-1.6.0-py3-none-any.whl" },
+]
+
+[[package]]
+name = "pygments"
+version = "2.21.0"
+source = { registry = "wheels" }
+wheels = [
+    { path = "pygments-2.21.0-py3-none-any.whl" },
+]
+
+[[package]]
+name = "pytest"
+version = "9.1.1"
+source = { registry = "wheels" }
+dependencies = [
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "iniconfig" },
+    { name = "packaging" },
+    { name = "pluggy" },
+    { name = "pygments" },
+]
+wheels = [
+    { path = "pytest-9.1.1-py3-none-any.whl" },
+]
+
+[[package]]
+name = "python-xlib"
+version = "0.33"
+source = { registry = "wheels" }
+dependencies = [
+    { name = "six" },
+]
+wheels = [
+    { path = "python_xlib-0.33-py2.py3-none-any.whl" },
+]
+
+[[package]]
+name = "pywin32"
+version = "311"
+source = { registry = "wheels" }
+wheels = [
+    { path = "pywin32-311-cp312-cp312-win_amd64.whl" },
+]
+
+[[package]]
+name = "pywinauto"
+version = "0.6.9+usbif.1"
+source = { registry = "wheels" }
+dependencies = [
+    { name = "comtypes", marker = "sys_platform == 'win32'" },
+    { name = "python-xlib", marker = "sys_platform == 'linux'" },
+    { name = "pywin32", marker = "sys_platform == 'win32'" },
+    { name = "six" },
+]
+wheels = [
+    { path = "pywinauto-0.6.9+usbif.1-py2.py3-none-any.whl" },
+]
+
+[[package]]
+name = "six"
+version = "1.17.0"
+source = { registry = "wheels" }
+wheels = [
+    { path = "six-1.17.0-py2.py3-none-any.whl" },
+]

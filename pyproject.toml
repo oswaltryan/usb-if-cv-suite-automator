@@ -16,7 +16,7 @@ dependencies = [
   "phidget22==1.22.20250714",
   "pillow>=10.0",
   "pywin32==311; platform_system == 'Windows'",
-  "pywinauto==0.6.9",
+  "pywinauto==0.6.9+usbif.1",
 ]
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -24,10 +24,18 @@ classifiers = [
   "Topic :: Software Development :: Testing",
 ]
 
-[project.optional-dependencies]
+[project.scripts]
+usb-if = "cv_suite_automator.cli:main"
+
+[dependency-groups]
 dev = [
   "pytest>=8.0.0",
 ]
+
+[tool.uv]
+required-version = ">=0.12.9"
+find-links = ["wheels"]
+no-index = true
 
 [tool.setuptools]
 package-dir = {"" = "src"}

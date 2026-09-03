@@ -77,6 +77,7 @@ Hardware:
 
 Software:
 - Python 3.12+
+- uv 0.12.9+
 - USB-IF CV Suite installed on Windows 11
 - Local Python dependencies from `wheels/` for offline installs
 - The bundled `usb-windows.exe` device-discovery tool (included with the package)
@@ -90,33 +91,34 @@ Software:
 
 ## Install
 
-Offline/local wheel install (recommended for lab machines):
+Create or update the locked project environment from the committed wheelhouse:
 
-```powershell
-pip install --no-index --find-links=./wheels -r requirements.txt
+```console
+uv sync
 ```
 
-Editable install:
+For a lab host without network access, require offline operation explicitly:
 
-```powershell
-pip install -e .
+```console
+uv sync --offline
 ```
 
 ## Run
 
 Run:
 
-```powershell
-scripts\run_automation.bat "{chipset}"
+```console
+uv run usb-if "{chipset}"
 ```
 
 At startup, the runner presents numbered Test, Controller, and USB Protocol
 selections. Enter one or more space-separated numbers, or press Enter at a
 prompt to run all of its options. Chapter 9 automatically maps to the correct
-USB2 or USB3 suite, and UASP is offered only for capable devices.
+USB2 or USB3 suite. UASP is offered provisionally before DUT enumeration and
+is skipped automatically when the selected device does not support it.
 
 Operator workflow:
-- Start the automation with `run_automation.bat`.
+- Start the automation with `uv run usb-if "{chipset}"`.
 - If both controllers were selected, perform the physical cable move when prompted.
 - Review artifacts in the session output directory.
 
@@ -142,9 +144,8 @@ Suite output, including reports from manual runs, is left untouched.
 
 Run fast unit tests (no hardware required):
 
-```powershell
-$env:PYTHONPATH = "$pwd\src"
-pytest tests -q
+```console
+uv run pytest
 ```
 
 CI workflow: `.github/workflows/ci.yml`
@@ -153,5 +154,5 @@ CI workflow: `.github/workflows/ci.yml`
 
 - A manual cable move is required only when both controllers are selected.
 - End-to-end execution depends on lab-specific hardware and CV Suite installation paths.
-- The automation assumes Windows-only tooling (`pywinauto`, batch/PowerShell wrappers).
+- The automation assumes Windows-only UI tooling (`pywinauto`).
 - UI automation reliability is coupled to CV Suite window/control behavior and may require updates if UI layouts change.

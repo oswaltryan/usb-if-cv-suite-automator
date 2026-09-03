@@ -1,0 +1,8 @@
+--- a/pywinauto/keyboard.py
++++ b/pywinauto/keyboard.py
+@@ -102,7 +102,7 @@ appropriately, the ``vk_packet`` option may be set to ``False``.  In this case
+ pywinauto will attempt to send the virtual key code of the requested key.  This
+-option only affects the behavior of keys matching [-=[]\;',./a-zA-Z0-9 ].  Note
++option only affects the behavior of keys matching [-=[]\\;',./a-zA-Z0-9 ].  Note
+ that upper and lower case are included for a-z.  Both reference the same
+ virtual key for convenience.
