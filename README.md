@@ -148,6 +148,22 @@ Run fast unit tests (no hardware required):
 uv run pytest
 ```
 
+Install the repository's pre-commit and pre-push hooks once per clone:
+
+```console
+uv run python -m tools.install_hooks
+```
+
+Run the exact Windows CI gate locally from a clean working tree:
+
+```console
+uv run python tools/quality_gate.py
+```
+
+The pre-commit hook fixes formatting and basic text hygiene. The pre-push hook
+runs the complete check-only gate used by CI: text validation, configuration
+validation, compilation, Ruff, mypy, project-version consistency, and pytest.
+
 CI workflow: `.github/workflows/ci.yml`
 
 ## Limitations

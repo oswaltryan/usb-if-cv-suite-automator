@@ -106,14 +106,11 @@ def classify_windows(
         title = window.title.casefold()
         text = window.searchable_text.casefold()
         failure_title = re.search(r"\b(error|failure|failed)\b", title)
-        failure_body = (
-            not window.is_main_window
-            and re.search(r"\b(test failed|test has failed|failure detected)\b", text)
+        failure_body = not window.is_main_window and re.search(
+            r"\b(test failed|test has failed|failure detected)\b", text
         )
         if not window.is_main_window and (
-            failure_title
-            or failure_body
-            or any(message in text for message in failures)
+            failure_title or failure_body or any(message in text for message in failures)
         ):
             return UIEvent(EventKind.FAILURE, window, reason=window.searchable_text)
 
@@ -133,10 +130,7 @@ def classify_windows(
 
     if not device_selected:
         for window in windows:
-            if (
-                window.title.casefold() == COMMAND_DIALOG_TITLE.casefold()
-                and window.has_list_box
-            ):
+            if window.title.casefold() == COMMAND_DIALOG_TITLE.casefold() and window.has_list_box:
                 return UIEvent(EventKind.DEVICE_SELECTION, window)
 
     for window in windows:
@@ -245,9 +239,7 @@ class CVSuiteUISupervisor:
                 self.main_window.restore()
             self.main_window.set_focus()
         except Exception as exc:
-            logger.exception(
-                "Warning: CV Suite could not be brought to the foreground: %s", exc
-            )
+            logger.exception("Warning: CV Suite could not be brought to the foreground: %s", exc)
 
     def wait_for_main_window(self, phase: str) -> None:
         """Wait for a dismissed modal to release the main window, then focus it."""
@@ -331,9 +323,7 @@ class CVSuiteUISupervisor:
         try:
             return [self._snapshot_window(window) for window in self.app.windows()]
         except Exception as exc:
-            self.operator_checkpoint(
-                f"CV Suite windows could not be inspected: {exc}", []
-            )
+            self.operator_checkpoint(f"CV Suite windows could not be inspected: {exc}", [])
             self.reconnect()
             return [self._snapshot_window(window) for window in self.app.windows()]
 
@@ -341,19 +331,13 @@ class CVSuiteUISupervisor:
         """Reconnect after CV Suite is restarted or existing handles go stale."""
         while True:
             try:
-                self.app = type(self.app)().connect(
-                    title=MAIN_WINDOW_TITLE, timeout=5
-                )
+                self.app = type(self.app)().connect(title=MAIN_WINDOW_TITLE, timeout=5)
                 self.main_window = self.app.window(best_match=MAIN_WINDOW_TITLE)
-                self.log_window = self.main_window.child_window(
-                    control_id=LOG_CONTROL_ID
-                )
+                self.log_window = self.main_window.child_window(control_id=LOG_CONTROL_ID)
                 if self.main_window.exists(timeout=2):
                     return
             except Exception as exc:
-                self.operator_checkpoint(
-                    f"Could not reconnect to CV Suite: {exc}", []
-                )
+                self.operator_checkpoint(f"Could not reconnect to CV Suite: {exc}", [])
 
     def _log_lines(self) -> list[str]:
         try:
@@ -465,9 +449,7 @@ class CVSuiteUISupervisor:
                     items.extend(root.sub_elements())
                 for item in items:
                     actual = _normalized_test_name(item.text())
-                    if actual and (
-                        actual == expected or expected in actual or actual in expected
-                    ):
+                    if actual and (actual == expected or expected in actual or actual in expected):
                         item.ensure_visible()
                         # TVM_ENSUREVISIBLE changes the scroll position immediately,
                         # but the native tree may not paint its items until the next
@@ -506,9 +488,7 @@ class CVSuiteUISupervisor:
         logger.info("Diagnostics: %s", location)
         logger.info("Correct the condition, then return to this window.")
         logger.info("%s", "=" * 70)
-        self.operator_input(
-            timestamped_prompt("Press ENTER to rescan and continue: ")
-        )
+        self.operator_input(timestamped_prompt("Press ENTER to rescan and continue: "))
         self.focus_main_window()
 
     def _find_current(self, original: WindowSnapshot) -> WindowSnapshot | None:
@@ -550,9 +530,7 @@ class CVSuiteUISupervisor:
             current = self._find_current(window)
             if current is not None:
                 try:
-                    self.app.window(handle=current.handle).child_window(
-                        best_match=button
-                    ).click()
+                    self.app.window(handle=current.handle).child_window(best_match=button).click()
                     return
                 except Exception:
                     attempts += 1
@@ -566,9 +544,7 @@ class CVSuiteUISupervisor:
                 deadline = time.monotonic() + 60
             time.sleep(self.poll_interval)
 
-    def select_device(
-        self, window: WindowSnapshot, vendor_id: str, product_id: str
-    ) -> bool:
+    def select_device(self, window: WindowSnapshot, vendor_id: str, product_id: str) -> bool:
         current = self._find_current(window)
         if current is None:
             return False
@@ -583,7 +559,6 @@ class CVSuiteUISupervisor:
         except Exception:
             return False
         return False
-
 
     def dismiss_window(self, window: WindowSnapshot, phase: str) -> None:
         """Close a modal without accepting its current selection or result."""
@@ -617,7 +592,8 @@ class CVSuiteUISupervisor:
         while True:
             windows = self.snapshots()
             blocking = [
-                window for window in windows
+                window
+                for window in windows
                 if window.visible and not window.is_main_window and window.title
             ]
             for window in blocking:
@@ -631,16 +607,15 @@ class CVSuiteUISupervisor:
             else:
                 main = next(
                     (
-                        window for window in windows
+                        window
+                        for window in windows
                         if window.is_main_window and window.visible and window.enabled
                     ),
                     None,
                 )
                 if main is not None:
                     self.main_window = self.app.window(handle=main.handle)
-                    self.log_window = self.main_window.child_window(
-                        control_id=LOG_CONTROL_ID
-                    )
+                    self.log_window = self.main_window.child_window(control_id=LOG_CONTROL_ID)
                     self.focus_main_window()
                     return
                 if blocking:
@@ -685,9 +660,7 @@ class CVSuiteUISupervisor:
                 device_selected,
             )
 
-            signature = repr(
-                ([(w.title, w.texts) for w in windows], self._log_lines()[-5:])
-            )
+            signature = repr(([(w.title, w.texts) for w in windows], self._log_lines()[-5:]))
             if signature != last_signature:
                 last_signature = signature
                 last_progress = time.monotonic()
@@ -704,15 +677,11 @@ class CVSuiteUISupervisor:
                     safe_buttons = {"ok", "close"}
                     for button in event.window.buttons:
                         if button.replace("&", "").strip().casefold() in safe_buttons:
-                            self.click_button(
-                                event.window, button, "failure acknowledgement"
-                            )
+                            self.click_button(event.window, button, "failure acknowledgement")
                             break
                 current_log = self._log_lines()
                 parsed = (
-                    parse_log_results(current_log)
-                    if tuple(current_log) != baseline_log
-                    else None
+                    parse_log_results(current_log) if tuple(current_log) != baseline_log else None
                 )
                 return TestOutcome(
                     parsed.tests_run if parsed and parsed.failures else None,
@@ -734,9 +703,7 @@ class CVSuiteUISupervisor:
                     time.sleep(self.poll_interval)
                     current_log = self._log_lines()
                 outcome = (
-                    parse_log_results(current_log)
-                    if tuple(current_log) != baseline_log
-                    else None
+                    parse_log_results(current_log) if tuple(current_log) != baseline_log else None
                 )
                 self.click_button(event.window, "OK", "results acknowledgement")
                 self.wait_for_main_window("results acknowledgement")
@@ -771,7 +738,7 @@ class CVSuiteUISupervisor:
                     "in the CV Suite device list",
                 )
 
-            elif event.kind is EventKind.UNKNOWN:
+            elif event.kind is EventKind.UNKNOWN and event.window is not None:
                 signature = repr((event.window.title, event.window.texts))
                 if signature != unknown_signature:
                     unknown_signature = signature
@@ -804,23 +771,14 @@ class CVSuiteUISupervisor:
                 title = window.title.casefold()
                 searchable = window.searchable_text.casefold()
                 failure_title = re.search(r"\b(error|failure|failed)\b", title)
-                failure_body = (
-                    not window.is_main_window
-                    and re.search(
-                        r"\b(test failed|test has failed|failure detected)\b",
-                        searchable,
-                    )
+                failure_body = not window.is_main_window and re.search(
+                    r"\b(test failed|test has failed|failure detected)\b",
+                    searchable,
                 )
-                known_failure = (
-                    title != MAIN_WINDOW_TITLE.casefold()
-                    and any(
-                        message.casefold() in searchable
-                        for message in self.failure_messages
-                    )
+                known_failure = title != MAIN_WINDOW_TITLE.casefold() and any(
+                    message.casefold() in searchable for message in self.failure_messages
                 )
-                if not window.is_main_window and (
-                    failure_title or failure_body or known_failure
-                ):
+                if not window.is_main_window and (failure_title or failure_body or known_failure):
                     self.operator_checkpoint(
                         f"CV Suite reported a failure during {phase}.", windows, {"phase": phase}
                     )

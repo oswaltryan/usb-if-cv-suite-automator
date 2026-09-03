@@ -1,6 +1,26 @@
 version = 1
 revision = 3
 requires-python = ">=3.12"
+resolution-markers = [
+    "python_full_version >= '3.15'",
+    "python_full_version < '3.15'",
+]
+
+[[package]]
+name = "ast-serialize"
+version = "0.9.0"
+source = { registry = "wheels" }
+wheels = [
+    { path = "ast_serialize-0.9.0-cp39-abi3-win_amd64.whl" },
+]
+
+[[package]]
+name = "cfgv"
+version = "3.5.0"
+source = { registry = "wheels" }
+wheels = [
+    { path = "cfgv-3.5.0-py2.py3-none-any.whl" },
+]
 
 [[package]]
 name = "colorama"
@@ -19,6 +39,14 @@ wheels = [
 ]
 
 [[package]]
+name = "coverage"
+version = "7.16.0"
+source = { registry = "wheels" }
+wheels = [
+    { path = "coverage-7.16.0-cp312-cp312-win_amd64.whl" },
+]
+
+[[package]]
 name = "cv-suite-automator"
 version = "0.2.1"
 source = { editable = "." }
@@ -32,7 +60,12 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "mypy" },
+    { name = "pre-commit" },
+    { name = "pre-commit-hooks" },
     { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
 ]
 
 [package.metadata]
@@ -45,7 +78,38 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=8.0.0" }]
+dev = [
+    { name = "mypy", specifier = ">=1.10.0" },
+    { name = "pre-commit", specifier = ">=3.7.0" },
+    { name = "pre-commit-hooks", specifier = "==5.0.0" },
+    { name = "pytest", specifier = ">=8.0.0" },
+    { name = "pytest-cov", specifier = ">=5.0.0" },
+    { name = "ruff", specifier = ">=0.4.2" },
+]
+
+[[package]]
+name = "distlib"
+version = "0.4.3"
+source = { registry = "wheels" }
+wheels = [
+    { path = "distlib-0.4.3-py2.py3-none-any.whl" },
+]
+
+[[package]]
+name = "filelock"
+version = "3.32.5"
+source = { registry = "wheels" }
+wheels = [
+    { path = "filelock-3.32.5-py3-none-any.whl" },
+]
+
+[[package]]
+name = "identify"
+version = "2.6.19"
+source = { registry = "wheels" }
+wheels = [
+    { path = "identify-2.6.19-py2.py3-none-any.whl" },
+]
 
 [[package]]
 name = "iniconfig"
@@ -56,11 +120,58 @@ wheels = [
 ]
 
 [[package]]
+name = "librt"
+version = "0.15.0"
+source = { registry = "wheels" }
+wheels = [
+    { path = "librt-0.15.0-cp312-cp312-win_amd64.whl" },
+]
+
+[[package]]
+name = "mypy"
+version = "2.3.1"
+source = { registry = "wheels" }
+dependencies = [
+    { name = "ast-serialize" },
+    { name = "librt", marker = "platform_python_implementation != 'PyPy'" },
+    { name = "mypy-extensions" },
+    { name = "pathspec" },
+    { name = "typing-extensions" },
+]
+wheels = [
+    { path = "mypy-2.3.1-cp312-cp312-win_amd64.whl" },
+]
+
+[[package]]
+name = "mypy-extensions"
+version = "1.1.0"
+source = { registry = "wheels" }
+wheels = [
+    { path = "mypy_extensions-1.1.0-py3-none-any.whl" },
+]
+
+[[package]]
+name = "nodeenv"
+version = "1.10.0"
+source = { registry = "wheels" }
+wheels = [
+    { path = "nodeenv-1.10.0-py2.py3-none-any.whl" },
+]
+
+[[package]]
 name = "packaging"
 version = "26.3"
 source = { registry = "wheels" }
 wheels = [
     { path = "packaging-26.3-py3-none-any.whl" },
+]
+
+[[package]]
+name = "pathspec"
+version = "1.1.1"
+source = { registry = "wheels" }
+wheels = [
+    { path = "pathspec-1.1.1-py3-none-any.whl" },
 ]
 
 [[package]]
@@ -80,11 +191,45 @@ wheels = [
 ]
 
 [[package]]
+name = "platformdirs"
+version = "4.11.7"
+source = { registry = "wheels" }
+wheels = [
+    { path = "platformdirs-4.11.7-py3-none-any.whl" },
+]
+
+[[package]]
 name = "pluggy"
 version = "1.6.0"
 source = { registry = "wheels" }
 wheels = [
     { path = "pluggy-1.6.0-py3-none-any.whl" },
+]
+
+[[package]]
+name = "pre-commit"
+version = "4.6.2"
+source = { registry = "wheels" }
+dependencies = [
+    { name = "cfgv" },
+    { name = "identify" },
+    { name = "nodeenv" },
+    { name = "pyyaml" },
+    { name = "virtualenv" },
+]
+wheels = [
+    { path = "pre_commit-4.6.2-py2.py3-none-any.whl" },
+]
+
+[[package]]
+name = "pre-commit-hooks"
+version = "5.0.0"
+source = { registry = "wheels" }
+dependencies = [
+    { name = "ruamel-yaml" },
+]
+wheels = [
+    { path = "pre_commit_hooks-5.0.0-py2.py3-none-any.whl" },
 ]
 
 [[package]]
@@ -108,6 +253,30 @@ dependencies = [
 ]
 wheels = [
     { path = "pytest-9.1.1-py3-none-any.whl" },
+]
+
+[[package]]
+name = "pytest-cov"
+version = "7.1.0"
+source = { registry = "wheels" }
+dependencies = [
+    { name = "coverage" },
+    { name = "pluggy" },
+    { name = "pytest" },
+]
+wheels = [
+    { path = "pytest_cov-7.1.0-py3-none-any.whl" },
+]
+
+[[package]]
+name = "python-discovery"
+version = "1.6.0"
+source = { registry = "wheels" }
+dependencies = [
+    { name = "filelock" },
+]
+wheels = [
+    { path = "python_discovery-1.6.0-py3-none-any.whl" },
 ]
 
 [[package]]
@@ -144,9 +313,55 @@ wheels = [
 ]
 
 [[package]]
+name = "pyyaml"
+version = "6.0.3"
+source = { registry = "wheels" }
+wheels = [
+    { path = "pyyaml-6.0.3-cp312-cp312-win_amd64.whl" },
+]
+
+[[package]]
+name = "ruamel-yaml"
+version = "0.19.1"
+source = { registry = "wheels" }
+wheels = [
+    { path = "ruamel_yaml-0.19.1-py3-none-any.whl" },
+]
+
+[[package]]
+name = "ruff"
+version = "0.16.6"
+source = { registry = "wheels" }
+wheels = [
+    { path = "ruff-0.16.6-py3-none-win_amd64.whl" },
+]
+
+[[package]]
 name = "six"
 version = "1.17.0"
 source = { registry = "wheels" }
 wheels = [
     { path = "six-1.17.0-py2.py3-none-any.whl" },
+]
+
+[[package]]
+name = "typing-extensions"
+version = "4.16.0"
+source = { registry = "wheels" }
+wheels = [
+    { path = "typing_extensions-4.16.0-py3-none-any.whl" },
+]
+
+[[package]]
+name = "virtualenv"
+version = "21.7.8"
+source = { registry = "wheels" }
+dependencies = [
+    { name = "distlib" },
+    { name = "filelock" },
+    { name = "platformdirs" },
+    { name = "python-discovery" },
+]
+wheels = [
+    { path = "virtualenv-21.7.8-py3-none-any.whl" },
 ]

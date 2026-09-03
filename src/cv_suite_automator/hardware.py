@@ -1,12 +1,10 @@
 from Phidget22.Phidget import *
 from Phidget22.Devices.DigitalOutput import DigitalOutput
 
+
 class IOController:
     def __init__(self):
-        self.outputs = {
-            'power': self._initialize_output(13),
-            'usb3': self._initialize_output(14)
-        }
+        self.outputs = {"power": self._initialize_output(13), "usb3": self._initialize_output(14)}
 
     def _initialize_output(self, channel):
         output = DigitalOutput()
@@ -27,6 +25,7 @@ class IOController:
     def close(self):
         for output in self.outputs.values():
             output.close()
+
 
 # Example usage (to be used in other scripts):
 # from phidget_controller import IOController

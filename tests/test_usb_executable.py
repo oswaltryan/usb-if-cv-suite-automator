@@ -39,9 +39,9 @@ def test_parse_usb_output_maps_device_fields() -> None:
 
 
 def test_parse_usb_output_handles_no_devices() -> None:
-    assert usb_executable._parse_usb_output(
-        'Scanning for Apricorn devices...\n{"devices": []}'
-    ) == []
+    assert (
+        usb_executable._parse_usb_output('Scanning for Apricorn devices...\n{"devices": []}') == []
+    )
 
 
 @pytest.mark.parametrize(
@@ -101,9 +101,7 @@ def test_find_apricorn_devices_reports_nonzero_exit(
     monkeypatch.setattr(
         usb_executable.subprocess,
         "run",
-        lambda *args, **kwargs: SimpleNamespace(
-            returncode=2, stdout="", stderr="scan failed"
-        ),
+        lambda *args, **kwargs: SimpleNamespace(returncode=2, stdout="", stderr="scan failed"),
     )
 
     with pytest.raises(USBExecutableError, match="exit code 2: scan failed"):

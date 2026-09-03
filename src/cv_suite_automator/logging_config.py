@@ -33,15 +33,10 @@ def _log_unhandled_exception(
 def configure_logging() -> None:
     """Configure timestamped stdout logging exactly once."""
     root = logging.getLogger()
-    if not any(
-        getattr(handler, "name", None) == _HANDLER_MARKER
-        for handler in root.handlers
-    ):
+    if not any(getattr(handler, "name", None) == _HANDLER_MARKER for handler in root.handlers):
         handler = logging.StreamHandler(sys.stdout)
         handler.name = _HANDLER_MARKER
-        handler.setFormatter(
-            logging.Formatter("[%(asctime)s] %(message)s", "%Y-%m-%d %H:%M:%S")
-        )
+        handler.setFormatter(logging.Formatter("[%(asctime)s] %(message)s", "%Y-%m-%d %H:%M:%S"))
         root.addHandler(handler)
     root.setLevel(logging.INFO)
     sys.excepthook = _log_unhandled_exception

@@ -29,7 +29,12 @@ usb-if = "cv_suite_automator.cli:main"
 
 [dependency-groups]
 dev = [
+  "mypy>=1.10.0",
+  "pre-commit>=3.7.0",
+  "pre-commit-hooks==5.0.0",
   "pytest>=8.0.0",
+  "pytest-cov>=5.0.0",
+  "ruff>=0.4.2",
 ]
 
 [tool.uv]
@@ -50,3 +55,32 @@ cv_suite_automator = ["summary_template.json", "bin/*.exe"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+pythonpath = ["."]
+
+[tool.ruff]
+src = ["src", "tools", "tests"]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "I", "UP", "SIM", "PLR"]
+
+[tool.ruff.lint.pylint]
+max-statements = 30
+max-branches = 10
+max-locals = 12
+max-nested-blocks = 4
+max-args = 6
+max-positional-args = 4
+max-bool-expr = 4
+
+[tool.mypy]
+python_version = "3.12"
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = ["Phidget22.*", "pywinauto.*", "win32con", "win32gui"]
+ignore_missing_imports = true

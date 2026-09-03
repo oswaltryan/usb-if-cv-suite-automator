@@ -14,10 +14,7 @@ configure_logging()
 logger = logging.getLogger(__name__)
 
 if len(sys.argv) != 2:
-    logger.info(
-        "\nOne argument is required for this program:\n"
-        "1 - (str) Bridge Controller Chipset"
-    )
+    logger.info("\nOne argument is required for this program:\n1 - (str) Bridge Controller Chipset")
     sys.exit(1)
 
 from .report_collector import ReportCollector, ReportTransferError
@@ -38,9 +35,7 @@ from .usb_executable import find_apricorn_devices
 
 
 cv_suite = CVSuiteAutomation()
-run_selection = resolve_device_capabilities(
-    run_selection, cv_suite.device.uses_uasp
-)
+run_selection = resolve_device_capabilities(run_selection, cv_suite.device.uses_uasp)
 with open(cv_suite.destination_summary_json) as json_file:
     cv_suite.test_summary = json.load(json_file)
 os.makedirs(cv_suite.destination_reports_dir, exist_ok=True)
@@ -96,9 +91,7 @@ def collect_reports(collector: ReportCollector) -> None:
         f"\\USB{cv_suite.usb_protocol}"
     )
     report_fallback = str(cv_suite.user_home / "Desktop" / "CV Reports")
-    relative_destination = Path(report_destination).relative_to(
-        Path(cv_suite.destination_drive)
-    )
+    relative_destination = Path(report_destination).relative_to(Path(cv_suite.destination_drive))
     report_archive = Path(cv_suite.source_reports_dir) / relative_destination
     while True:
         try:
@@ -116,9 +109,7 @@ def collect_reports(collector: ReportCollector) -> None:
             )
 
 
-controllers_to_run = ordered_controllers(
-    run_selection.controllers, cv_suite.usb_controller_name
-)
+controllers_to_run = ordered_controllers(run_selection.controllers, cv_suite.usb_controller_name)
 protocols_to_run = ordered_protocols(run_selection.protocols)
 
 for target_controller in controllers_to_run:
@@ -154,9 +145,7 @@ test_labels = {
 print()
 logger.info("%s", "=" * 70)
 logger.info("SELECTED RUN COMPLETE (Windows %s)", cv_suite.windows_version)
-logger.info(
-    "Tests: %s", ", ".join(test_labels[test] for test in run_selection.tests)
-)
+logger.info("Tests: %s", ", ".join(test_labels[test] for test in run_selection.tests))
 logger.info("Controllers: %s", ", ".join(run_selection.controllers))
 logger.info(
     "Protocols: %s",

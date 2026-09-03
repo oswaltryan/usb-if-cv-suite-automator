@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Callable, Iterable
+from typing import Callable, Iterable, TypeVar
 
 from .logging_config import timestamped_prompt
 
 
 logger = logging.getLogger(__name__)
+Choice = TypeVar("Choice")
 
 TEST_OPTIONS = (
     ("chapter9", "Chapter 9 Tests"),
@@ -41,9 +42,9 @@ class RunSelection:
 
 def _prompt_numbered(
     title: str,
-    options: Iterable[tuple[object, str]],
+    options: Iterable[tuple[Choice, str]],
     input_func: Callable[[str], str],
-) -> tuple[object, ...]:
+) -> tuple[Choice, ...]:
     choices = tuple(options)
     while True:
         print()
@@ -63,9 +64,7 @@ def _prompt_numbered(
             continue
         selected = set(numbers)
         return tuple(
-            value
-            for number, (value, _) in enumerate(choices, start=1)
-            if number in selected
+            value for number, (value, _) in enumerate(choices, start=1) if number in selected
         )
 
 
@@ -77,19 +76,13 @@ def prompt_run_selection(
     # Offer UASP provisionally and resolve it once device capabilities are known.
     tests = TEST_OPTIONS + ((UASP_OPTION,) if supports_uasp is not False else ())
     return RunSelection(
-        tests=tuple(_prompt_numbered("Test Selection", tests, input_func)),
-        controllers=tuple(
-            _prompt_numbered("Controller Selection", CONTROLLER_OPTIONS, input_func)
-        ),
-        protocols=tuple(
-            _prompt_numbered("USB Protocol Selection", PROTOCOL_OPTIONS, input_func)
-        ),
+        tests=_prompt_numbered("Test Selection", tests, input_func),
+        controllers=_prompt_numbered("Controller Selection", CONTROLLER_OPTIONS, input_func),
+        protocols=_prompt_numbered("USB Protocol Selection", PROTOCOL_OPTIONS, input_func),
     )
 
 
-def resolve_device_capabilities(
-    selection: RunSelection, supports_uasp: bool
-) -> RunSelection:
+def resolve_device_capabilities(selection: RunSelection, supports_uasp: bool) -> RunSelection:
     """Remove provisional selections unsupported by the enumerated DUT."""
     if supports_uasp or "uasp" not in selection.tests:
         return selection
@@ -101,9 +94,7 @@ def resolve_device_capabilities(
     )
 
 
-def ordered_controllers(
-    selected: Iterable[str], current_controller: str
-) -> tuple[str, ...]:
+def ordered_controllers(selected: Iterable[str], current_controller: str) -> tuple[str, ...]:
     selected = set(selected)
     order = [current_controller] if current_controller in selected else []
     order.extend(

@@ -52,9 +52,9 @@ from .utils import *
 
 logger = logging.getLogger(__name__)
 
-controller = IOController()              # Initialize controller
-controller.turn_on('power')               # Turn on power (channel 13)
-controller.turn_on('usb3')                # Turn on USB3 (channel 14)
+controller = IOController()  # Initialize controller
+controller.turn_on("power")  # Turn on power (channel 13)
+controller.turn_on("usb3")  # Turn on USB3 (channel 14)
 
 logger.info("Searching for a connected and unlocked Apricorn device...")
 logger.info("Please plug the device into the USB2/3 switchboard and unlock it.")
@@ -63,7 +63,7 @@ device_handle = None
 while not device_handle:
     # Attempt to find the device
     device_handle = find_apricorn_devices()
-    
+
     if not device_handle:
         time.sleep(15)
         # If no device is found, wait a few seconds and try again.
@@ -72,6 +72,7 @@ while not device_handle:
 
 # A short pause to ensure the device is fully initialized by the OS
 time.sleep(2)
+
 
 class CVSuiteAutomation:
     """
@@ -182,7 +183,7 @@ class CVSuiteAutomation:
             sys.exit(1)  # Exit if no device is found.
         else:
             for dut in range(len(self.device)):
-                if self.device[dut].idProduct == '0351':
+                if self.device[dut].idProduct == "0351":
                     self.device.pop(dut)
                     break
             if len(self.device) > 1:
@@ -211,7 +212,7 @@ class CVSuiteAutomation:
         self.usb_protocol = int(self.device.bcdUSB)
 
         # Define base paths needed for the session discovery logic
-        self.destination_drive = 'M:\\USB-IF Results'
+        self.destination_drive = "M:\\USB-IF Results"
         self.source_summary_json = str(Path(__file__).with_name("summary_template.json"))
 
         # --- Stage 2: Find or create the test session using our new helper method ---
@@ -219,13 +220,13 @@ class CVSuiteAutomation:
 
         # --- Stage 3: Define all paths based on the discovered or created session ID ---
         self.session_dir = (
-            f'{self.destination_drive}\\{self.test_description_input}\\'
-            f'v{self.device.bcdDevice}\\{self.device.driveSizeGB}GB\\'
-            f'{self.test_datetime}'
+            f"{self.destination_drive}\\{self.test_description_input}\\"
+            f"v{self.device.bcdDevice}\\{self.device.driveSizeGB}GB\\"
+            f"{self.test_datetime}"
         )
-        self.destination_reports_dir = f'{self.session_dir}\\Windows {self.windows_version}'
-        self.destination_summary_json = f'{self.session_dir}\\summary.json'
-        
+        self.destination_reports_dir = f"{self.session_dir}\\Windows {self.windows_version}"
+        self.destination_summary_json = f"{self.session_dir}\\summary.json"
+
         self.source_reports_dir = str(
             self.user_home / "Documents" / "USB-IF Test Suite" / "CV Reports" / "USB3CV"
         )
@@ -246,8 +247,8 @@ class CVSuiteAutomation:
                 "name": "Chapter 9 Tests [USB 2 devices]",
                 "dialog_strings": {
                     1: "Please run Connector Type Tests on this device.",
-                    2: "Please run MSC/BOT Tests on this device."
-                }
+                    2: "Please run MSC/BOT Tests on this device.",
+                },
             },
             2: {
                 "test_number": 2,
@@ -255,29 +256,22 @@ class CVSuiteAutomation:
                 "dialog_strings": {
                     1: "Please run Chapter 9 Tests on this device as a USB 2.0 device at all supported USB 2.0 speeds.",
                     2: "Please run Connector Type Tests on this device.",
-                    3: "Please run MSC/BOT Tests on this device."
-                }
+                    3: "Please run MSC/BOT Tests on this device.",
+                },
             },
             3: {
                 "test_number": 3,
                 "name": "Connector Type Tests",
                 "dialog_strings": {
                     1: "Select power connection for DUT",
-                    2: "Is Device Under Test an Embedded Device?"
-                }
+                    2: "Is Device Under Test an Embedded Device?",
+                },
             },
-            6: {
-                "test_number": 6,
-                "name": "Device Summary",
-                "dialog_strings": {}
-            }
+            6: {"test_number": 6, "name": "Device Summary", "dialog_strings": {}},
         }
 
         # Keep track of which tests each controller has completed for each protocol.
-        self.completed_test_list = {
-            "ASMedia": {2: [], 3: []},
-            "Intel": {2: [], 3: []}
-        }
+        self.completed_test_list = {"ASMedia": {2: [], 3: []}, "Intel": {2: [], 3: []}}
 
         # Summaries will store pass/fail data. Appended at runtime.
         self.test_summary = {}
@@ -286,56 +280,74 @@ class CVSuiteAutomation:
         self.failure_messages = [
             "This test suite is designed for Enhanced SuperSpeed devices only, but no Enhanced SuperSpeed devices have been detected.",
             "A Device Under Test was not set.",
-            "No Device Under Test"
+            "No Device Under Test",
         ]
 
         # Check if device is UASP and update test list accordingly
         if self.device.uses_uasp:
-            self.test_list[1].update({
-                "dialog_strings": {
-                    1: "Please run Connector Type Tests on this device.",
-                    2: "Please run MSC/BOT Tests on this device.",
-                    3: "Please run MSC/UASP Tests on this device."}
-            })
-            self.test_list[2].update({
-                "dialog_strings": {
-                    1: "Please run Chapter 9 Tests on this device as a USB 2.0 device at all supported USB 2.0 speeds.",
-                    2: "Please run Connector Type Tests on this device.",
-                    3: "Please run MSC/BOT Tests on this device.",
-                    4: "Please run MSC/UASP Tests on this device."
-            }})
-            self.test_list.update({21: {
-                "test_number": 21,
-                "name": "UASP Tests",
-                "dialog_strings": {
-                    1: "WARNING: The following test might destroy ALL data on this disk.  To continue with all tests, click OK.  To abort this test, click ABORT",
-                    2: "1) Please unplug and power off the device.",
-                    3: "Is the device capable of detecting power loss states?"
+            self.test_list[1].update(
+                {
+                    "dialog_strings": {
+                        1: "Please run Connector Type Tests on this device.",
+                        2: "Please run MSC/BOT Tests on this device.",
+                        3: "Please run MSC/UASP Tests on this device.",
+                    }
                 }
-            }})
-            self.test_list.update({17: {
-                "test_number": 17,
-                "name": "MSC Tests",
-                "dialog_strings": {
-                    1: "WARNING: The following test might destroy ALL data on this disk.  To continue with all tests, click OK.  To abort this test, click ABORT",
-                    2: "Disconnect and power off MSC device, then click OK.  To abort this test, click ABORT"
+            )
+            self.test_list[2].update(
+                {
+                    "dialog_strings": {
+                        1: "Please run Chapter 9 Tests on this device as a USB 2.0 device at all supported USB 2.0 speeds.",
+                        2: "Please run Connector Type Tests on this device.",
+                        3: "Please run MSC/BOT Tests on this device.",
+                        4: "Please run MSC/UASP Tests on this device.",
+                    }
                 }
-            }})
+            )
+            self.test_list.update(
+                {
+                    21: {
+                        "test_number": 21,
+                        "name": "UASP Tests",
+                        "dialog_strings": {
+                            1: "WARNING: The following test might destroy ALL data on this disk.  To continue with all tests, click OK.  To abort this test, click ABORT",
+                            2: "1) Please unplug and power off the device.",
+                            3: "Is the device capable of detecting power loss states?",
+                        },
+                    }
+                }
+            )
+            self.test_list.update(
+                {
+                    17: {
+                        "test_number": 17,
+                        "name": "MSC Tests",
+                        "dialog_strings": {
+                            1: "WARNING: The following test might destroy ALL data on this disk.  To continue with all tests, click OK.  To abort this test, click ABORT",
+                            2: "Disconnect and power off MSC device, then click OK.  To abort this test, click ABORT",
+                        },
+                    }
+                }
+            )
         else:
-            self.test_list.update({17: {
-                "test_number": 17,
-                "name": "MSC Tests",
-                "dialog_strings": {
-                    1: "WARNING: The following test might destroy ALL data on this disk.  To continue with all tests, click OK.  To abort this test, click ABORT",
-                    2: "Disconnect and power off MSC device, then click OK.  To abort this test, click ABORT"
+            self.test_list.update(
+                {
+                    17: {
+                        "test_number": 17,
+                        "name": "MSC Tests",
+                        "dialog_strings": {
+                            1: "WARNING: The following test might destroy ALL data on this disk.  To continue with all tests, click OK.  To abort this test, click ABORT",
+                            2: "Disconnect and power off MSC device, then click OK.  To abort this test, click ABORT",
+                        },
+                    }
                 }
-            }})
+            )
 
     def _create_session(self):
         """Create a unique Windows 11 test session."""
         base_device_dir = (
-            f'{self.destination_drive}\\{self.test_description_input}\\'
-            f'v{self.device.bcdDevice}\\{self.device.driveSizeGB}GB'
+            f"{self.destination_drive}\\{self.test_description_input}\\"
+            f"v{self.device.bcdDevice}\\{self.device.driveSizeGB}GB"
         )
         os.makedirs(base_device_dir, exist_ok=True)
 
@@ -350,11 +362,10 @@ class CVSuiteAutomation:
             new_session_path = os.path.join(base_device_dir, new_session_id)
             suffix += 1
         os.makedirs(new_session_path, exist_ok=True)
-        destination_summary_json = os.path.join(new_session_path, 'summary.json')
+        destination_summary_json = os.path.join(new_session_path, "summary.json")
         shutil.copy(src=self.source_summary_json, dst=destination_summary_json)
-        
-        return new_session_id
 
+        return new_session_id
 
     def start_cv_suite(self):
         """
@@ -377,15 +388,9 @@ class CVSuiteAutomation:
         last_error = "CV Suite did not become available"
         while True:
             try:
-                self.app = Application().connect(
-                    title=r"USB 3 Gen X Command Verifier", timeout=5
-                )
-                self.main_window = self.app.window(
-                    best_match=r"USB 3 Gen X Command Verifier"
-                )
-                self.log_window = self.main_window.child_window(
-                    control_id=LOG_CONTROL_ID
-                )
+                self.app = Application().connect(title=r"USB 3 Gen X Command Verifier", timeout=5)
+                self.main_window = self.app.window(best_match=r"USB 3 Gen X Command Verifier")
+                self.log_window = self.main_window.child_window(control_id=LOG_CONTROL_ID)
                 if self.main_window.exists(timeout=2):
                     break
             except Exception as exc:
@@ -421,9 +426,7 @@ class CVSuiteAutomation:
             continue_button.wait("exists enabled visible ready", timeout=20)
             continue_button.click()
 
-        self.ui_supervisor.perform_action(
-            select_controller, "host controller selection"
-        )
+        self.ui_supervisor.perform_action(select_controller, "host controller selection")
 
         self.ui_supervisor.wait_for_text_and_click(
             "Do you want to continue with the host controller you have selected?",
@@ -435,6 +438,7 @@ class CVSuiteAutomation:
         self.log_window = self.ui_supervisor.log_window
 
         if self.usb_controller_name not in self._description_entered_for_controllers:
+
             def enter_test_description():
                 # CV Suite has multiple Edit controls. ID 1026 is the visible
                 # Optional Test Description field; fuzzy matching selects a
@@ -449,12 +453,10 @@ class CVSuiteAutomation:
             )
             self._description_entered_for_controllers.add(self.usb_controller_name)
 
-
     def select_test(self, test: int):
         """Compatibility entry point for callers using the former API."""
         # Compatibility entry point for callers using the former two-step API.
         return self.run_test(test)
-
 
     def clear_dialog_boxes(self, test: int):
         """
@@ -502,14 +504,16 @@ class CVSuiteAutomation:
 
         # Once the test finishes, a "Results" dialog typically appears. Close it.
         results_dialog = self.app.window(best_match=r"Results")
-        results_dialog.wait('exists', timeout=30, retry_interval=10)
+        results_dialog.wait("exists", timeout=30, retry_interval=10)
         results_dialog.child_window(best_match="OK").click()
 
         # Mark the test as completed, storing pass/fail data.
-        self.completed_test_list[self.usb_controller_name][self.usb_protocol].append(self.current_test)
+        self.completed_test_list[self.usb_controller_name][self.usb_protocol].append(
+            self.current_test
+        )
 
         # Parse the log line (like "Tests run (20), Failures (0)") to gather numeric results.
-        log_results = re.findall(r'\((.*?)\)', self.log_window.texts()[-2])
+        log_results = re.findall(r"\((.*?)\)", self.log_window.texts()[-2])
         log_results = [int(v) for v in log_results]
         # If zero failures, mark pass. Otherwise, fail.
         if log_results[1] == 0:
@@ -519,14 +523,15 @@ class CVSuiteAutomation:
 
         # Ensure nested dictionaries are built in self.test_summary for Windows version, etc.
         # Then store the results for later reference.
-        self.test_summary[f'Windows {self.windows_version}'][self.usb_controller_name][f'USB{self.usb_protocol}'][self.test_list[self.current_test]['name']].extend(log_results)
+        self.test_summary[f"Windows {self.windows_version}"][self.usb_controller_name][
+            f"USB{self.usb_protocol}"
+        ][self.test_list[self.current_test]["name"]].extend(log_results)
 
         # Dump the updated summary to the JSON file so progress is tracked.
         custom_json_dump(self.test_summary, self.destination_summary_json)
 
         # Print results to console as well.
         logger.info("--- %s: %s", self.test_list[self.current_test]["name"], log_results)
-
 
     def _dialog_rules(self, test: int) -> list[DialogRule]:
         rules = []
@@ -544,7 +549,9 @@ class CVSuiteAutomation:
         if self.current_test not in completed:
             completed.append(self.current_test)
 
-        destination = self.test_summary[f'Windows {self.windows_version}'][self.usb_controller_name][f'USB{self.usb_protocol}'][self.test_list[self.current_test]['name']]
+        destination = self.test_summary[f"Windows {self.windows_version}"][
+            self.usb_controller_name
+        ][f"USB{self.usb_protocol}"][self.test_list[self.current_test]["name"]]
         destination[:] = outcome.summary_values()
         custom_json_dump(self.test_summary, self.destination_summary_json)
         logger.info(

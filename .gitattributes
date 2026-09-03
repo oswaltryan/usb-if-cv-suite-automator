@@ -1,0 +1,3 @@
+* text=auto eol=lf
+*.whl binary
+*.exe binary

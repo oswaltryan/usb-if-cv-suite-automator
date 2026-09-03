@@ -46,9 +46,7 @@ class ReportCollector:
             if path.is_file() and path.suffix.casefold() == ".html"
         )
         directories = frozenset(
-            path.relative_to(self.source)
-            for path in self.source.rglob("*")
-            if path.is_dir()
+            path.relative_to(self.source) for path in self.source.rglob("*") if path.is_dir()
         )
         return ReportSnapshot(files, directories)
 
@@ -74,13 +72,10 @@ class ReportCollector:
                 return fallback
             except OSError as fallback_exc:
                 raise ReportTransferError(
-                    f"Report destination and fallback are unavailable: "
-                    f"{destination}; {fallback}"
+                    f"Report destination and fallback are unavailable: {destination}; {fallback}"
                 ) from fallback_exc
 
-    def _destination_for(
-        self, relative_path: Path, destination: Path, archive: Path
-    ) -> Path:
+    def _destination_for(self, relative_path: Path, destination: Path, archive: Path) -> Path:
         assigned = self._destinations.get(relative_path)
         if assigned is not None and assigned.parent == destination:
             return assigned
@@ -92,9 +87,7 @@ class ReportCollector:
             or (archive / candidate.name).exists()
             or candidate in self._destinations.values()
         ):
-            candidate = destination / (
-                f"{relative_path.stem}_{counter}{relative_path.suffix}"
-            )
+            candidate = destination / (f"{relative_path.stem}_{counter}{relative_path.suffix}")
             counter += 1
         self._destinations[relative_path] = candidate
         return candidate
@@ -105,21 +98,15 @@ class ReportCollector:
         try:
             if not target.exists():
                 shutil.copy2(source, temporary)
-                if (
-                    temporary.stat().st_size != source.stat().st_size
-                    or _sha256(temporary) != _sha256(source)
-                ):
-                    raise ReportTransferError(
-                        f"Verification failed for report copy: {source}"
-                    )
+                if temporary.stat().st_size != source.stat().st_size or _sha256(
+                    temporary
+                ) != _sha256(source):
+                    raise ReportTransferError(f"Verification failed for report copy: {source}")
                 os.replace(temporary, target)
-            elif (
-                target.stat().st_size != source.stat().st_size
-                or _sha256(target) != _sha256(source)
+            elif target.stat().st_size != source.stat().st_size or _sha256(target) != _sha256(
+                source
             ):
-                raise ReportTransferError(
-                    f"Existing report copy does not match source: {target}"
-                )
+                raise ReportTransferError(f"Existing report copy does not match source: {target}")
         finally:
             try:
                 temporary.unlink(missing_ok=True)
@@ -140,9 +127,7 @@ class ReportCollector:
 
         for relative_path in sorted(self.owned_files, key=str):
             source_path = self.source / relative_path
-            target_path = self._destination_for(
-                relative_path, target_root, archive_root
-            )
+            target_path = self._destination_for(relative_path, target_root, archive_root)
             archive_path = archive_root / target_path.name
             if not source_path.exists():
                 continue

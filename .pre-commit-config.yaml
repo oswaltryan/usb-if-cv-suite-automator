@@ -1,0 +1,123 @@
+minimum_pre_commit_version: "3.0.0"
+default_stages: [pre-commit]
+
+repos:
+  - repo: local
+    hooks:
+      - id: trailing-whitespace
+        name: trailing-whitespace
+        entry: uv run --no-sync python -m pre_commit_hooks.trailing_whitespace_fixer --markdown-linebreak-ext=md
+        language: system
+        types: [text]
+      - id: end-of-file-fixer
+        name: end-of-file-fixer
+        entry: uv run --no-sync python -m pre_commit_hooks.end_of_file_fixer
+        language: system
+        types: [text]
+      - id: mixed-line-ending
+        name: mixed-line-ending
+        entry: uv run --no-sync python -m pre_commit_hooks.mixed_line_ending --fix=lf
+        language: system
+        types: [text]
+      - id: text-hygiene-check
+        name: Text Hygiene Check
+        entry: uv run --no-sync python tools/text_hygiene.py
+        language: system
+        types: [text]
+        stages: [manual]
+      - id: check-merge-conflict
+        name: check-merge-conflict
+        entry: uv run --no-sync python -m pre_commit_hooks.check_merge_conflict
+        language: system
+        types: [text]
+        stages: [pre-commit, manual]
+      - id: debug-statements
+        name: debug-statements
+        entry: uv run --no-sync python -m pre_commit_hooks.debug_statement_hook
+        language: system
+        types: [python]
+        stages: [pre-commit, manual]
+      - id: check-json
+        name: check-json
+        entry: uv run --no-sync python -m pre_commit_hooks.check_json
+        language: system
+        files: \.json$
+        stages: [pre-commit, manual]
+      - id: check-yaml
+        name: check-yaml
+        entry: uv run --no-sync python -m pre_commit_hooks.check_yaml
+        language: system
+        files: \.ya?ml$
+        stages: [pre-commit, manual]
+      - id: check-toml
+        name: check-toml
+        entry: uv run --no-sync python -m pre_commit_hooks.check_toml
+        language: system
+        files: \.toml$
+        stages: [pre-commit, manual]
+      - id: detect-private-key
+        name: detect-private-key
+        entry: uv run --no-sync python -m pre_commit_hooks.detect_private_key
+        language: system
+        stages: [pre-commit, manual]
+      - id: check-added-large-files
+        name: check-added-large-files
+        entry: uv run --no-sync python -m pre_commit_hooks.check_added_large_files --maxkb=1024
+        language: system
+        exclude: ^wheels/
+        stages: [pre-commit, manual]
+      - id: check-case-conflict
+        name: check-case-conflict
+        entry: uv run --no-sync python -m pre_commit_hooks.check_case_conflict
+        language: system
+        pass_filenames: false
+        stages: [pre-commit, manual]
+      - id: compileall
+        name: Python Compile Check
+        entry: uv run --no-sync python -m compileall src tools tests
+        language: system
+        pass_filenames: false
+        stages: [pre-commit, manual]
+      - id: ruff-check
+        name: Ruff Lint
+        entry: uv run --no-sync ruff check --select E9,F63,F7,F82 src tools tests
+        language: system
+        pass_filenames: false
+        stages: [pre-commit, manual]
+      - id: ruff-format
+        name: Ruff Format (fix)
+        entry: uv run --no-sync ruff format src tools tests
+        language: system
+        pass_filenames: false
+      - id: ruff-format-check
+        name: Ruff Format Check
+        entry: uv run --no-sync ruff format --check src tools tests
+        language: system
+        pass_filenames: false
+        stages: [manual]
+      - id: mypy
+        name: Mypy
+        entry: uv run --no-sync python -m mypy --explicit-package-bases src/cv_suite_automator tools
+        language: system
+        pass_filenames: false
+        stages: [pre-commit, manual]
+      - id: project-version-check
+        name: Versioning Check
+        entry: uv run --no-sync python tools/project_version.py check
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit, manual]
+      - id: pytest
+        name: Pytest
+        entry: uv run --no-sync python -m pytest -q tests -p no:cacheprovider
+        language: system
+        pass_filenames: false
+        stages: [pre-commit, manual]
+      - id: ci-parity
+        name: CI Parity Gate
+        entry: uv run --no-sync python tools/quality_gate.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]

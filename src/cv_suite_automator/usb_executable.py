@@ -50,8 +50,7 @@ class ApricornDevice:
         missing = [field for field in required if field not in data]
         if missing:
             raise USBExecutableError(
-                "USB executable returned a device missing required fields: "
-                + ", ".join(missing)
+                "USB executable returned a device missing required fields: " + ", ".join(missing)
             )
 
         return cls(**{field: data[field] for field in required})
@@ -66,27 +65,19 @@ def _parse_usb_output(output: str) -> list[ApricornDevice]:
     try:
         payload, _ = json.JSONDecoder().raw_decode(output[json_start:])
     except json.JSONDecodeError as exc:
-        raise USBExecutableError(
-            f"USB executable returned malformed JSON: {exc.msg}."
-        ) from exc
+        raise USBExecutableError(f"USB executable returned malformed JSON: {exc.msg}.") from exc
 
     entries = payload.get("devices") if isinstance(payload, dict) else None
     if not isinstance(entries, list):
-        raise USBExecutableError(
-            "USB executable JSON must contain a 'devices' list."
-        )
+        raise USBExecutableError("USB executable JSON must contain a 'devices' list.")
 
     devices: list[ApricornDevice] = []
     for entry in entries:
         if not isinstance(entry, dict) or len(entry) != 1:
-            raise USBExecutableError(
-                "USB executable returned an invalid numbered device entry."
-            )
+            raise USBExecutableError("USB executable returned an invalid numbered device entry.")
         device_data = next(iter(entry.values()))
         if not isinstance(device_data, dict):
-            raise USBExecutableError(
-                "USB executable returned invalid device details."
-            )
+            raise USBExecutableError("USB executable returned invalid device details.")
         devices.append(ApricornDevice.from_json(device_data))
 
     return devices
@@ -97,9 +88,7 @@ def find_apricorn_devices(
 ) -> list[ApricornDevice]:
     """Run the bundled executable and return all detected Apricorn devices."""
     if not executable.is_file():
-        raise USBExecutableError(
-            f"USB discovery executable was not found at '{executable}'."
-        )
+        raise USBExecutableError(f"USB discovery executable was not found at '{executable}'.")
 
     try:
         result = subprocess.run(
@@ -117,9 +106,7 @@ def find_apricorn_devices(
             f"USB discovery timed out after {USB_TOOL_TIMEOUT_SECONDS} seconds."
         ) from exc
     except OSError as exc:
-        raise USBExecutableError(
-            f"Unable to start USB discovery executable: {exc}."
-        ) from exc
+        raise USBExecutableError(f"Unable to start USB discovery executable: {exc}.") from exc
 
     if result.returncode != 0:
         detail = result.stderr.strip() or result.stdout.strip() or "no error details"

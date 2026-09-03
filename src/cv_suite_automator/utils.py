@@ -1,5 +1,6 @@
 import json
 
+
 def encode_with_inline_lists(obj, level=0, indent=4):
     """
     Recursively encodes 'obj' into a JSON string where:
@@ -11,24 +12,24 @@ def encode_with_inline_lists(obj, level=0, indent=4):
     if isinstance(obj, dict):
         if not obj:  # empty dict
             return "{}"
-        
+
         # We'll store each "key: value" line here
         items = []
         for key, value in obj.items():
             # Encode the key
             encoded_key = json.dumps(key, ensure_ascii=False)
-            
+
             # Recursively encode the value
             encoded_value = encode_with_inline_lists(value, level + 1, indent)
-            
+
             # Combine into a single line like: "key": value
-            line = f'{encoded_key}: {encoded_value}'
+            line = f"{encoded_key}: {encoded_value}"
             items.append(line)
-        
+
         # Build the dictionary block with newlines and indentation
-        current_indent = ' ' * (indent * level)
-        child_indent = ' ' * (indent * (level + 1))
-        
+        current_indent = " " * (indent * level)
+        child_indent = " " * (indent * (level + 1))
+
         # Join items with commas + newlines
         joined_items = ",\n".join(child_indent + item for item in items)
         return "{\n" + joined_items + "\n" + current_indent + "}"
@@ -48,7 +49,7 @@ def custom_json_dump(data, file_path, indent=4):
     Writes 'data' as JSON to 'file_path', using 'encode_with_inline_lists'
     for the encoding so that lists are inline and dictionaries are indented.
     """
-    with open(file_path, 'w', encoding='utf-8') as f:
+    with open(file_path, "w", encoding="utf-8") as f:
         f.write(encode_with_inline_lists(data, level=0, indent=indent))
 
 
@@ -64,9 +65,8 @@ def custom_json_dump(data, file_path, indent=4):
 # data["Windows 11"]["ASMedia"]["USB3"]["Device Summary"].extend([2, 0])
 
 # # 3. (Optional) backup original
-# shutil.copy('C:\\Users\\itadmin\\Desktop\\cv_suite_testing\\summary_template.json', 
+# shutil.copy('C:\\Users\\itadmin\\Desktop\\cv_suite_testing\\summary_template.json',
 #             'C:\\Users\\itadmin\\Desktop\\cv_suite_testing\\new_summary.json')
 
 # # 4. Use custom dump to write the new JSON
 # custom_json_dump(data, 'C:\\Users\\itadmin\\Desktop\\cv_suite_testing\\new_summary.json', indent=4)
-
