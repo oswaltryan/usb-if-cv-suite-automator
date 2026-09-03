@@ -12,6 +12,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
+import win32con
+import win32gui
+
 from .logging_config import timestamped_prompt
 
 
@@ -192,6 +195,10 @@ def latest_failed_test_name(lines: Iterable[str]) -> str | None:
     )
     matches = pattern.findall(log_text)
     return matches[-1][0].strip() if matches else None
+
+
+def _normalized_test_name(name: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", name.casefold())
 
 
 def device_item_matches(item: str, vendor_id: str, product_id: str) -> bool:
@@ -426,27 +433,59 @@ class CVSuiteUISupervisor:
 
     def _reveal_failed_test(self, main_window: Any) -> bool:
         """Best-effort scroll of the CV Suite test tree before a screenshot."""
-        failed_name = latest_failed_test_name(self._log_lines())
-        if not failed_name:
-            return False
-        expected = " ".join(failed_name.split()).casefold()
-
         try:
             controls = main_window.descendants()
         except Exception:
             return False
+        failed_name = latest_failed_test_name(self._log_lines())
+        if not failed_name:
+            main_text = []
+            for control in controls:
+                try:
+                    text = control.window_text()
+                    if text:
+                        main_text.append(text)
+                except Exception:
+                    continue
+            failed_name = latest_failed_test_name(main_text)
+        if not failed_name:
+            return False
+        expected = _normalized_test_name(failed_name)
+
         for control in controls:
             try:
-                if control.friendly_class_name() != "TreeView":
+                if (
+                    control.friendly_class_name() != "TreeView"
+                    and control.class_name() != "SysTreeView32"
+                ):
                     continue
                 items = []
                 for root in control.roots():
                     items.append(root)
                     items.extend(root.sub_elements())
                 for item in items:
-                    actual = " ".join(item.text().split()).casefold()
-                    if actual == expected or expected in actual or actual in expected:
+                    actual = _normalized_test_name(item.text())
+                    if actual and (
+                        actual == expected or expected in actual or actual in expected
+                    ):
                         item.ensure_visible()
+                        # TVM_ENSUREVISIBLE changes the scroll position immediately,
+                        # but the native tree may not paint its items until the next
+                        # message cycle.  Force that paint before capture_as_image().
+                        try:
+                            win32gui.RedrawWindow(
+                                control.handle,
+                                None,
+                                None,
+                                win32con.RDW_INVALIDATE
+                                | win32con.RDW_ERASE
+                                | win32con.RDW_UPDATENOW
+                                | win32con.RDW_ALLCHILDREN,
+                            )
+                        except Exception:
+                            # Revealing the item is still useful if repainting is not
+                            # supported by a wrapper or by a future backend.
+                            pass
                         return True
             except Exception:
                 continue

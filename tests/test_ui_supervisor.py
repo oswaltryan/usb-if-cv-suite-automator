@@ -196,17 +196,14 @@ def test_latest_failed_test_name_returns_none_without_failed_subtest() -> None:
 def test_failed_tree_item_is_scrolled_into_view_for_diagnostics(tmp_path: Path) -> None:
     class Log:
         def texts(self):
-            return [
-                "Stopping Test [ Relevant Failure:\n"
-                " Number of: Fails (1); Aborts (0) ]"
-            ]
+            return []
 
     class Item:
         def __init__(self):
             self.was_revealed = False
 
         def text(self):
-            return "Relevant Failure"
+            return "TD 9.15 L1 Suspend/Resume Test (Configuration Index 0)"
 
         def sub_elements(self):
             return []
@@ -220,12 +217,34 @@ def test_failed_tree_item_is_scrolled_into_view_for_diagnostics(tmp_path: Path) 
         def friendly_class_name(self):
             return "TreeView"
 
+        def class_name(self):
+            return "SysTreeView32"
+
+        def window_text(self):
+            return ""
+
         def roots(self):
             return [item]
 
     class Main:
         def descendants(self):
-            return [Tree()]
+            tree = Tree()
+
+            class LogText:
+                def friendly_class_name(self):
+                    return "Edit"
+
+                def class_name(self):
+                    return "RichEdit"
+
+                def window_text(self):
+                    return (
+                        "Stopping Test [ L1Suspend/Resume Test "
+                        "(Configuration Index 0):\n"
+                        " Number of: Fails (1); Aborts (0) ]"
+                    )
+
+            return [tree, LogText()]
 
     supervisor = CVSuiteUISupervisor(
         EmptyApp(), None, Log(), tmp_path, [], operator_input=lambda _: ""
