@@ -25,7 +25,7 @@ def test_encode_with_inline_lists_keeps_list_on_one_line() -> None:
 def test_custom_json_dump_writes_expected_shape() -> None:
     scratch = _new_scratch_dir()
     destination = scratch / "summary.json"
-    payload = {"Windows 10": {"Intel": {"USB2": {"Device Summary": [1, 1]}}}}
+    payload = {"Windows 11": {"Intel": {"USB2": {"Device Summary": [1, 1]}}}}
 
     try:
         custom_json_dump(payload, str(destination))

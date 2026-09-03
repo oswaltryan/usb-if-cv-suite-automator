@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "cv-suite-automator"
 version = "0.2.1"
-description = "Semi-automated USB-IF CV Suite orchestration across controllers and dual-boot Windows environments."
+description = "Semi-automated USB-IF CV Suite orchestration for Windows 11."
 readme = "README.md"
 requires-python = ">=3.12"
 authors = [

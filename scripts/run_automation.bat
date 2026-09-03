@@ -2,7 +2,7 @@
 :: =========================================================================
 :: run_automation.bat
 :: -------------------------------------------------------------------------
-:: The main entry point for a single-OS test.
+:: The main entry point for a Windows 11 test.
 :: This version correctly sets the PYTHONPATH and returns the Python
 :: script's exit code. It does NOT use a virtual environment.
 :: =========================================================================

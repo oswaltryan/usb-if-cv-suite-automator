@@ -23,8 +23,6 @@ Example:
     python cv_suite_automation.py 3861EN-FL
 """
 
-import datetime
-import json
 import logging
 import os
 import io
@@ -32,7 +30,6 @@ import re
 import sys
 import time
 import shutil
-import platform
 from pathlib import Path
 
 from contextlib import redirect_stdout
@@ -97,11 +94,7 @@ class CVSuiteAutomation:
             USB protocol version (2 or 3). Derived from the device bcdUSB.
 
         windows_version (int):
-            The detected Windows major version (10 or 11). Used for file paths.
-
-        windows_user_name (str):
-            The local username corresponding to the Windows version.
-            E.g., "Testing" on Win10 or "itadmin" on Win11.
+            The supported Windows major version (11). Used for file paths.
 
         test_datetime (str):
             A timestamp (YYYY-MM-DD HHMM) captured at initialization to
@@ -175,8 +168,8 @@ class CVSuiteAutomation:
 
     def __init__(self):
         """
-        Initializes the CVSuiteAutomation class by detecting the device,
-        OS, and automatically finding or creating a test session.
+        Initializes the CVSuiteAutomation class by detecting the device and
+        creating a Windows 11 test session.
         """
         # --- Stage 1: Basic device and environment detection ---
         # Attempt to locate a recognized Apricorn device (custom function).
@@ -205,12 +198,10 @@ class CVSuiteAutomation:
         else:
             self.usb_controller = 1
 
-        # Detect Windows version (10 or 11) and set user name accordingly.
-        self.windows_version = int(platform.win32_ver()[0])
-        if self.windows_version == 10:
-            self.windows_user_name = "Testing"
-        elif self.windows_version == 11:
-            self.windows_user_name = "itadmin"
+        # USB-IF supports this workflow on Windows 11 only.
+        self.windows_version = 11
+        self.user_home = Path.home()
+        self.windows_user_name = self.user_home.name
 
         # sys.argv[1] is expected to be the "bridge controller chipset" string.
         # We also append the device model name (self.device.iProduct).
@@ -221,12 +212,10 @@ class CVSuiteAutomation:
 
         # Define base paths needed for the session discovery logic
         self.destination_drive = 'M:\\USB-IF Results'
-        self.source_summary_json = (
-            f'C:\\Users\\{self.windows_user_name}\\Desktop\\cv_suite_testing\\src\\cv_suite_automator\\summary_template.json'
-        )
+        self.source_summary_json = str(Path(__file__).with_name("summary_template.json"))
 
         # --- Stage 2: Find or create the test session using our new helper method ---
-        self.test_datetime = self._find_or_create_session()
+        self.test_datetime = self._create_session()
 
         # --- Stage 3: Define all paths based on the discovered or created session ID ---
         self.session_dir = (
@@ -237,8 +226,8 @@ class CVSuiteAutomation:
         self.destination_reports_dir = f'{self.session_dir}\\Windows {self.windows_version}'
         self.destination_summary_json = f'{self.session_dir}\\summary.json'
         
-        self.source_reports_dir = (
-            f'C:\\Users\\{self.windows_user_name}\\Documents\\USB-IF Test Suite\\CV Reports\\USB3CV'
+        self.source_reports_dir = str(
+            self.user_home / "Documents" / "USB-IF Test Suite" / "CV Reports" / "USB3CV"
         )
 
         # --- Stage 4: Initialize application and test state variables (unchanged from original) ---
@@ -341,101 +330,24 @@ class CVSuiteAutomation:
                 }
             }})
 
-    def _is_os_section_empty(self, summary_data: dict, os_key: str) -> bool:
-        """Checks if a given OS section in the summary data is empty."""
-        try:
-            os_data = summary_data[os_key]
-            for controller in os_data.values():
-                for protocol in controller.values():
-                    for test_results in protocol.values():
-                        if test_results:  # An empty list is False, a non-empty list is True
-                            return False
-        except KeyError:
-            # If the OS key doesn't even exist, it's definitely "empty"
-            return True
-        return True
-
-    def _find_or_create_session(self):
-        """
-        Finds a session to latch onto or creates a new one based on strict rules.
-
-        - Latching is ONLY allowed if the most recent session was started on the
-          *other* OS, is incomplete, and was created within a short time window.
-        - In ALL other cases, a new session is created.
-        - No data is ever overwritten or deleted.
-
-        Returns:
-            str: The session timestamp (e.g., "2023-10-27 1430").
-        """
-        # --- Latching is only allowed for sessions newer than this (in minutes) ---
-        # This window should be just long enough to allow for the automated
-        # OS reboot and script startup process.
-        LATCH_WINDOW_MINUTES = 120  # 2 hours
-
+    def _create_session(self):
+        """Create a unique Windows 11 test session."""
         base_device_dir = (
             f'{self.destination_drive}\\{self.test_description_input}\\'
             f'v{self.device.bcdDevice}\\{self.device.driveSizeGB}GB'
         )
         os.makedirs(base_device_dir, exist_ok=True)
 
-        try:
-            # Get existing session folders, sorted with the newest one first.
-            session_folders = sorted(
-                [d for d in os.listdir(base_device_dir) if os.path.isdir(os.path.join(base_device_dir, d))],
-                reverse=True
-            )
-        except FileNotFoundError:
-            session_folders = []
-
-        # Only check the single most recent session folder for a potential latch.
-        if session_folders:
-            latest_session_id = session_folders[0]
-            
-            # 1. Check if the session is a valid timestamp
-            try:
-                session_time = datetime.datetime.strptime(latest_session_id, "%Y-%m-%d %H%M")
-                time_since_session = datetime.datetime.now() - session_time
-            except ValueError:
-                # If the folder name isn't a timestamp, it can't be latched.
-                latest_session_id = None
-
-            if latest_session_id:
-                # 2. Check if the session is within the allowed time window
-                if time_since_session.total_seconds() < (LATCH_WINDOW_MINUTES * 60):
-                    summary_path = os.path.join(base_device_dir, latest_session_id, 'summary.json')
-                    
-                    if os.path.exists(summary_path):
-                        try:
-                            with open(summary_path, 'r') as f:
-                                summary_data = json.load(f)
-
-                            current_os_key = f'Windows {self.windows_version}'
-                            other_os_key = f'Windows {10 if self.windows_version == 11 else 11}'
-
-                            is_current_empty = self._is_os_section_empty(summary_data, current_os_key)
-                            is_other_empty = self._is_os_section_empty(summary_data, other_os_key)
-
-                            # 3. Check if the session state is correct for latching
-                            # (Current OS section must be empty, other OS must not be)
-                            if is_current_empty and not is_other_empty:
-                                logger.info(
-                                    "Found recent session '%s' from other OS. Latching onto it.",
-                                    latest_session_id,
-                                )
-                                return latest_session_id
-
-                        except (json.JSONDecodeError, IOError):
-                            logger.warning(
-                                "Warning: Could not read or parse summary for session '%s'.",
-                                latest_session_id,
-                            )
-
-        # If we reach this point, no valid session was found to latch onto.
-        # Create a new session.
-        logger.info("No suitable recent session to latch onto. Creating a new test session.")
+        logger.info("Creating a new test session.")
         print("")
-        new_session_id = time.strftime("%Y-%m-%d %H%M", time.localtime())
+        session_stamp = time.strftime("%Y-%m-%d %H%M", time.localtime())
+        new_session_id = session_stamp
         new_session_path = os.path.join(base_device_dir, new_session_id)
+        suffix = 1
+        while os.path.exists(new_session_path):
+            new_session_id = f"{session_stamp}-{suffix}"
+            new_session_path = os.path.join(base_device_dir, new_session_id)
+            suffix += 1
         os.makedirs(new_session_path, exist_ok=True)
         destination_summary_json = os.path.join(new_session_path, 'summary.json')
         shutil.copy(src=self.source_summary_json, dst=destination_summary_json)
@@ -454,7 +366,7 @@ class CVSuiteAutomation:
         - Confirms the prompt "Do you want to continue with the host controller you have selected?".
         """
         # Launch the application using its .lnk desktop shortcut.
-        shortcut = f"C:\\Users\\{self.windows_user_name}\\Desktop\\USB3CV - USB 3 Gen X.lnk"
+        shortcut = str(self.user_home / "Desktop" / "USB3CV - USB 3 Gen X.lnk")
         os.startfile(shortcut)
         # Preserve the foreground handoff that CV Suite needs during startup.
         time.sleep(1)

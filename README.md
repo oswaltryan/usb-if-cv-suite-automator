@@ -5,19 +5,19 @@ Windows automation toolkit for USB-IF CV Suite regression and qualification runs
 The project automates high-friction validation steps across:
 - Host controllers (ASMedia and Intel)
 - USB protocol modes (USB2 and USB3)
-- Dual-boot Windows environments (Windows 10 and Windows 11)
+- Windows 11 test hosts
 
 It is intentionally semi-automated: software orchestration is scripted end-to-end, while one physical DUT port move is still required between controller passes.
 
 ## At a glance
 
-- Problem: USB-IF CV Suite runs are repetitive and error-prone across controllers, protocol modes, and dual-boot OS passes.
+- Problem: USB-IF CV Suite runs are repetitive and error-prone across controllers and protocol modes.
 - Stack: Python automation with `pywinauto` (CV Suite UI), `Phidget22` (relay control), and batch/PowerShell orchestration.
 - Outcome: deterministic session outputs (`summary.json` + structured report hierarchy) for regression and qualification evidence.
 
 ## Why this exists
 
-USB-IF CV Suite runs are repetitive, stateful, and easy to derail when you are moving between host controllers, USB protocol paths, and dual-boot OS setups. This project provides a deterministic orchestration layer that:
+USB-IF CV Suite runs are repetitive, stateful, and easy to derail when moving between host controllers and USB protocol paths. This project provides a deterministic orchestration layer that:
 - Drives CV Suite through scripted UI interactions (`pywinauto`)
 - Controls lab relay hardware (`Phidget22`) for USB path switching
 - Persists progress and report artifacts in a structured, repeatable folder model
@@ -26,25 +26,24 @@ USB-IF CV Suite runs are repetitive, stateful, and easy to derail when you are m
 
 ```mermaid
 flowchart TD
-  A["Start run: full session or single OS"] --> B["Detect DUT, OS, and session"]
+  A["Start run"] --> B["Detect DUT and create session"]
   B --> C["ASMedia: USB2 and USB3"]
   C --> E["Intel: USB2 and USB3"]
   E --> G["Update summary and collect HTML reports"]
-  G --> H{"Other OS pass required?"}
-  H -->|Yes| I["Reboot to other OS and resume session"]
-  I --> B
-  H -->|No| K["Session complete"]
+  G --> H["Selected run complete"]
 ```
 
 ## Deep Dive
 
-### 1. Session continuity across dual-boot runs
+### 1. Windows 11 test sessions
 
-The automation is built for Windows 10/11 cross-OS validation sessions. It discovers whether to continue an in-flight session or create a new one, then keeps progress in a shared `summary.json` so the second OS pass can resume deterministically.
+Each invocation creates a unique Windows 11 session and records its selected test scope in `summary.json` and the structured report hierarchy.
 
-### 2. Deterministic test matrix execution
+### 2. Configurable test matrix execution
 
-Each OS pass runs a fixed controller/protocol matrix (ASMedia + Intel, USB2 + USB3) through CV Suite UI automation. Protocol execution order can vary by detected device state, but both protocol modes are exercised per controller pass. This avoids ad hoc operator sequencing and makes runs easier to compare across regression cycles.
+Each run executes the tests, controllers, and USB protocols chosen at startup.
+Pressing Enter at every selection preserves the complete ASMedia/Intel and
+USB2/USB3 matrix.
 
 ### 3. Lab hardware orchestration
 
@@ -71,14 +70,14 @@ The project ships with modern Python packaging metadata (`pyproject.toml`), offl
 ## Environment requirements
 
 Hardware:
-- Dual-boot Windows 10/11 validation host (for full session)
+- Windows 11 validation host
 - DUT (for example, Apricorn secure storage)
 - Phidgets IO controller and USB2/USB3 switchboard
 - External results drive mounted as `M:`
 
 Software:
 - Python 3.12+
-- USB-IF CV Suite installed on both Windows partitions
+- USB-IF CV Suite installed on Windows 11
 - Local Python dependencies from `wheels/` for offline installs
 - The bundled `usb-windows.exe` device-discovery tool (included with the package)
 
@@ -86,7 +85,7 @@ Software:
 
 - Results target drive is mounted as `M:` during execution.
 - CV Suite is installed and accessible in expected host-specific paths.
-- Lab host usernames and path conventions match script expectations.
+- The active Windows profile contains the CV Suite shortcut and report folders.
 - DUT is connected and unlocked when the run starts.
 
 ## Install
@@ -105,23 +104,21 @@ pip install -e .
 
 ## Run
 
-Single-OS run:
+Run:
 
 ```powershell
 scripts\run_automation.bat "{chipset}"
 ```
 
-Full dual-OS session:
-
-```powershell
-scripts\start_cv_suite_session.bat "{chipset}"
-```
+At startup, the runner presents numbered Test, Controller, and USB Protocol
+selections. Enter one or more space-separated numbers, or press Enter at a
+prompt to run all of its options. Chapter 9 automatically maps to the correct
+USB2 or USB3 suite, and UASP is offered only for capable devices.
 
 Operator workflow:
-- Start the full session script on the first OS.
-- Perform the single required physical cable move when prompted.
-- Let the machine reboot and resume on the second OS.
-- Review merged artifacts in the session output directory.
+- Start the automation with `run_automation.bat`.
+- If both controllers were selected, perform the physical cable move when prompted.
+- Review artifacts in the session output directory.
 
 ## Output model
 
@@ -132,7 +129,7 @@ M:\USB-IF Results\<chipset + product>\v<bcdDevice>\<capacity>GB\<timestamp>\
 ```
 
 Each session stores:
-- Per-OS report folders (Windows 10 and Windows 11)
+- Windows 11 report folders
 - Per-controller and per-protocol report splits (ASMedia/Intel, USB2/USB3)
 - A `summary.json` file that tracks completion and pass/fail outcomes
 
@@ -154,7 +151,7 @@ CI workflow: `.github/workflows/ci.yml`
 
 ## Limitations
 
-- One manual cable move between controllers is still required.
-- End-to-end execution depends on lab-specific hardware, OS usernames, and CV Suite installation paths.
+- A manual cable move is required only when both controllers are selected.
+- End-to-end execution depends on lab-specific hardware and CV Suite installation paths.
 - The automation assumes Windows-only tooling (`pywinauto`, batch/PowerShell wrappers).
 - UI automation reliability is coupled to CV Suite window/control behavior and may require updates if UI layouts change.

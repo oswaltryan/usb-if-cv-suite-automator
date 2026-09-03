@@ -1,38 +1,4 @@
 {
-    "Windows 10": {
-        "ASMedia": {
-            "USB2": {
-                "Chapter 9 Tests [USB 2 devices]": [],
-                "Connector Type Tests": [],
-                "Device Summary": [],
-                "MSC Tests": [],
-                "UASP Tests": []
-            },
-            "USB3": {
-                "Chapter 9 Tests [USB 3 Gen X devices]": [],
-                "Connector Type Tests": [],
-                "Device Summary": [],
-                "MSC Tests": [],
-                "UASP Tests": []
-            }
-        },
-        "Intel": {
-            "USB2": {
-                "Chapter 9 Tests [USB 2 devices]": [],
-                "Connector Type Tests": [],
-                "Device Summary": [],
-                "MSC Tests": [],
-                "UASP Tests": []
-            },
-            "USB3": {
-                "Chapter 9 Tests [USB 3 Gen X devices]": [],
-                "Connector Type Tests": [],
-                "Device Summary": [],
-                "MSC Tests": [],
-                "UASP Tests": []
-            }
-        }
-    },
     "Windows 11": {
         "ASMedia": {
             "USB2": {
