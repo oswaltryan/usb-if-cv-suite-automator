@@ -605,6 +605,7 @@ class CVSuiteAutomation:
             "protocol": self.usb_protocol,
         }
         while True:
+            logger.info("--- Starting %s", self.test_list[test]["name"])
             baseline_log = self.ui_supervisor.perform_action(
                 start_test, "test launch", {"test": test}
             )
@@ -627,7 +628,7 @@ class CVSuiteAutomation:
             self.ui_supervisor.prepare_for_test_retry(context)
 
         self._record_test_outcome(outcome)
-        if outcome.failed:
+        if outcome.reconnect_required:
             self._wait_for_device_after_failure()
         return outcome
 

@@ -229,6 +229,32 @@ def test_latest_failed_test_name_returns_none_without_failed_subtest() -> None:
     )
 
 
+def test_known_device_failure_requires_reconnect() -> None:
+    event = classify_windows(
+        [window("Error", "No Device Under Test")],
+        [],
+        set(),
+        ["No Device Under Test"],
+        True,
+    )
+
+    assert event.kind is EventKind.FAILURE
+    assert event.reconnect_required
+
+
+def test_generic_compliance_failure_does_not_require_reconnect() -> None:
+    event = classify_windows(
+        [window("Test Failure Details", "A compliance assertion failed")],
+        [],
+        set(),
+        ["No Device Under Test"],
+        True,
+    )
+
+    assert event.kind is EventKind.FAILURE
+    assert not event.reconnect_required
+
+
 def test_failed_tree_item_is_scrolled_into_view_for_diagnostics(tmp_path: Path) -> None:
     class Log:
         def texts(self):
@@ -249,6 +275,15 @@ def test_failed_tree_item_is_scrolled_into_view_for_diagnostics(tmp_path: Path) 
 
     item = Item()
 
+    class Branch(Item):
+        def text(self):
+            return "Configured State"
+
+        def sub_elements(self):
+            return [item]
+
+    branch = Branch()
+
     class Tree:
         def friendly_class_name(self):
             return "TreeView"
@@ -260,7 +295,7 @@ def test_failed_tree_item_is_scrolled_into_view_for_diagnostics(tmp_path: Path) 
             return ""
 
         def roots(self):
-            return [item]
+            return [branch]
 
     class Main:
         def descendants(self):
@@ -488,6 +523,30 @@ def test_monitor_drives_device_prompt_and_result_sequence(tmp_path: Path) -> Non
     assert outcome.summary_values() == [4, 0, "Pass"]
     assert (prompt.title, "Yes", "test prompt") in supervisor.clicked
     assert (results.title, "OK", "results acknowledgement") in supervisor.clicked
+
+
+def test_completed_compliance_failure_captures_diagnostics_without_reconnect(
+    tmp_path: Path,
+) -> None:
+    device = window(
+        "USB Command Verifier (xHCI - USB 3)",
+        "VID=0984 PID=1410",
+        has_list_box=True,
+    )
+    results = window("Results", "complete", buttons=("OK",))
+    main = window("USB 3 Gen X Command Verifier")
+    supervisor = SequenceSupervisor(
+        tmp_path,
+        [[device], [results], [main]],
+        ["TEST RESULTS: [ Passed (35); Failed (1) ]"],
+    )
+
+    outcome = supervisor.monitor_test([], "0984", "1410", {"test": 1})
+
+    assert outcome.summary_values() == [36, 1, "Fail"]
+    assert not outcome.reconnect_required
+    assert "diagnostics saved" in outcome.reason
+    assert list(tmp_path.glob("*/incident.json"))
 
 
 def test_monitor_failure_preempts_and_returns_null_count_failure(tmp_path: Path) -> None:

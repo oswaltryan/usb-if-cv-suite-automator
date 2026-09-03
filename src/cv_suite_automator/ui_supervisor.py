@@ -70,6 +70,7 @@ class UIEvent:
     window: WindowSnapshot | None = None
     rule: DialogRule | None = None
     reason: str = ""
+    reconnect_required: bool = False
 
 
 @dataclass(frozen=True)
@@ -78,6 +79,7 @@ class TestOutcome:
     failures: int | None
     status: str
     reason: str = ""
+    reconnect_required: bool = False
 
     @property
     def failed(self) -> bool:
@@ -109,10 +111,14 @@ def classify_windows(
         failure_body = not window.is_main_window and re.search(
             r"\b(test failed|test has failed|failure detected)\b", text
         )
-        if not window.is_main_window and (
-            failure_title or failure_body or any(message in text for message in failures)
-        ):
-            return UIEvent(EventKind.FAILURE, window, reason=window.searchable_text)
+        known_device_failure = any(message in text for message in failures)
+        if not window.is_main_window and (failure_title or failure_body or known_device_failure):
+            return UIEvent(
+                EventKind.FAILURE,
+                window,
+                reason=window.searchable_text,
+                reconnect_required=known_device_failure,
+            )
 
     for window in windows:
         if window.title.casefold() == RESULTS_WINDOW_TITLE.casefold():
@@ -444,9 +450,11 @@ class CVSuiteUISupervisor:
                 ):
                     continue
                 items = []
-                for root in control.roots():
-                    items.append(root)
-                    items.extend(root.sub_elements())
+                pending = list(control.roots())
+                while pending:
+                    item = pending.pop(0)
+                    items.append(item)
+                    pending[0:0] = list(item.sub_elements())
                 for item in items:
                     actual = _normalized_test_name(item.text())
                     if actual and (actual == expected or expected in actual or actual in expected):
@@ -688,6 +696,7 @@ class CVSuiteUISupervisor:
                     parsed.failures if parsed and parsed.failures else None,
                     "Fail",
                     f"CV Suite failure; diagnostics saved to {location}",
+                    reconnect_required=event.reconnect_required,
                 )
 
             if event.kind is EventKind.RESULTS and event.window is not None:
@@ -708,6 +717,18 @@ class CVSuiteUISupervisor:
                 self.click_button(event.window, "OK", "results acknowledgement")
                 self.wait_for_main_window("results acknowledgement")
                 if outcome is not None:
+                    if outcome.failed:
+                        location = self.capture_diagnostics(
+                            "CV Suite completed the test with failures",
+                            self.snapshots(),
+                            context,
+                        )
+                        return TestOutcome(
+                            outcome.tests_run,
+                            outcome.failures,
+                            outcome.status,
+                            f"Test failures; diagnostics saved to {location}",
+                        )
                     return outcome
                 location = self.capture_diagnostics(
                     "Results appeared without parseable test counts", windows, context
