@@ -12,6 +12,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
+from .logging_config import timestamped_prompt
+
 
 MAIN_WINDOW_TITLE = "USB 3 Gen X Command Verifier"
 COMMAND_DIALOG_TITLE = "USB Command Verifier (xHCI - USB 3)"
@@ -458,13 +460,16 @@ class CVSuiteUISupervisor:
     ) -> None:
         windows = list(snapshots) if snapshots is not None else self.snapshots()
         location = self.capture_diagnostics(reason, windows, context)
-        logger.info("\n%s", "=" * 70)
+        print()
+        logger.info("%s", "=" * 70)
         logger.info("OPERATOR ACTION REQUIRED")
         logger.info("%s", reason)
         logger.info("Diagnostics: %s", location)
         logger.info("Correct the condition, then return to this window.")
         logger.info("%s", "=" * 70)
-        self.operator_input("Press ENTER to rescan and continue: ")
+        self.operator_input(
+            timestamped_prompt("Press ENTER to rescan and continue: ")
+        )
         self.focus_main_window()
 
     def _find_current(self, original: WindowSnapshot) -> WindowSnapshot | None:

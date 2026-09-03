@@ -42,6 +42,7 @@ from pywinauto.keyboard import send_keys
 
 # These are local imports in your environment:
 from .hardware import IOController
+from .logging_config import timestamped_prompt
 from .ui_supervisor import (
     CVSuiteUISupervisor,
     DialogRule,
@@ -479,12 +480,13 @@ class CVSuiteAutomation:
                 last_error = exc
 
             if attempts >= 3 or time.monotonic() >= deadline:
-                logger.info("\n%s", "=" * 70)
+                print()
+                logger.info("%s", "=" * 70)
                 logger.info("OPERATOR ACTION REQUIRED")
                 logger.error("Could not connect to CV Suite: %s", last_error)
                 logger.info("Start or restore CV Suite, then return to this window.")
                 logger.info("%s", "=" * 70)
-                input("Press ENTER to retry: ")
+                input(timestamped_prompt("Press ENTER to retry: "))
                 attempts = 0
                 deadline = time.monotonic() + 60
             time.sleep(1)
