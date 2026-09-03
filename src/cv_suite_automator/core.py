@@ -237,6 +237,7 @@ class CVSuiteAutomation:
         self.log_window = None
         self.ui_supervisor = None
         self.current_test = None
+        self._description_entered_for_controllers: set[str] = set()
 
         # List of tests we might execute.
         self.test_list = {
@@ -433,89 +434,26 @@ class CVSuiteAutomation:
         self.main_window = self.ui_supervisor.main_window
         self.log_window = self.ui_supervisor.log_window
 
+        if self.usb_controller_name not in self._description_entered_for_controllers:
+            def enter_test_description():
+                # CV Suite has multiple Edit controls. ID 1026 is the visible
+                # Optional Test Description field; fuzzy matching selects a
+                # hidden RichEdit control on this screen.
+                test_description = self.main_window.child_window(control_id=1026)
+                test_description.wait("exists enabled visible ready", timeout=20)
+                test_description.set_focus()
+                send_keys(self.test_description_input, with_spaces=True)
+
+            self.ui_supervisor.perform_action(
+                enter_test_description, "optional test description entry"
+            )
+            self._description_entered_for_controllers.add(self.usb_controller_name)
+
 
     def select_test(self, test: int):
-        """
-        Selects a test from the CV Suite ListBox and sets a test description.
-
-        Args:
-            test (int):
-                The numeric key from self.test_list that identifies
-                the desired test (e.g., 6 for "Device Summary").
-
-        Steps:
-            - Finds the test in CV Suite's "ListBox" and highlights it.
-            - If no tests have been run yet, sets the test description in the "Edit" control.
-            - Clicks "Run" to start the test.
-            - Waits for the device selection dialog and repeatedly attempts to find and
-            select the correct device until successful.
-        """
+        """Compatibility entry point for callers using the former API."""
         # Compatibility entry point for callers using the former two-step API.
         return self.run_test(test)
-
-        # Select the specified test from the CV Suite main window's ListBox.
-        test_list_box = self.main_window.child_window(best_match="ListBox")
-        test_list_box.select(test)
-
-        # Click into the text field and set the test description if no prior tests are completed.
-        test_description = self.main_window.child_window(best_match="Edit")
-        test_description.set_focus()
-        if (len(self.completed_test_list[self.usb_controller_name][2]) == 0
-                and len(self.completed_test_list[self.usb_controller_name][3]) == 0):
-            send_keys(self.test_description_input, with_spaces=True)
-
-        # Click "Run" to proceed.
-        self.main_window.child_window(best_match="Run").click()
-
-        # Wait for the device selection dialog titled "USB Command Verifier (xHCI - USB 3)"
-        device_list_outer_box = self.app.window(best_match=r"USB Command Verifier (xHCI - USB 3)")
-        device_list_outer_box.wait('exists', timeout=20)
-
-        # Within that dialog, find the ListBox of connected devices.
-        device_list_box = device_list_outer_box.child_window(best_match="ListBox")
-
-        device_found = False
-        # Loop until the device is successfully found and selected.
-        while not device_found:
-            # print("Attempting to find and select the device...")
-
-            # Check if the dialog is still there. If not, something else happened.
-            if not device_list_outer_box.exists():
-                logger.error("Device selection dialog disappeared unexpectedly. Aborting test.")
-                # Exit the method since we can't proceed.
-                return
-
-            # Get the current list of devices from the GUI
-            devices = device_list_box.texts()
-
-            for index, item in enumerate(devices):
-                if self.device.idVendor in item:
-                    # print(f"Device found: {item}")
-                    device_found = True
-                    try:
-                        # The 'index-1' logic is specific to how this ListBox enumerates items.
-                        device_list_box.select(index - 1)
-                        time.sleep(1) # A short pause for UI to update.
-                        device_list_outer_box.child_window(best_match="Ok").click()
-                    except Exception as e:
-                        logger.exception(
-                            "Error occurred while selecting the device or clicking OK: %s",
-                            e,
-                        )
-                        # Reset device_found to False to ensure the loop retries.
-                        device_found = False
-                    # Exit the for loop since we've found our device (or tried to).
-                    break
-
-            if not device_found:
-                # If the for loop completes and the device is still not found,
-                # print a message and wait before the while loop tries again.
-                logger.warning(
-                    "DEVICE NOT FOUND. Please ensure the device is unlocked and "
-                    "connected. Retrying in 15 seconds..."
-                )
-                time.sleep(15)
-                # The 'while' loop will now repeat the entire check.
 
 
     def clear_dialog_boxes(self, test: int):
@@ -647,15 +585,6 @@ class CVSuiteAutomation:
             test_list_box = self.main_window.child_window(control_id=1001)
             test_list_box.wait("exists enabled visible ready", timeout=20)
             test_list_box.select(test)
-            # CV Suite has multiple Edit controls. ID 1026 is the visible
-            # Optional Test Description field; fuzzy matching selects a hidden
-            # RichEdit control on this screen.
-            test_description = self.main_window.child_window(control_id=1026)
-            test_description.wait("exists enabled visible ready", timeout=20)
-            test_description.set_focus()
-            if (len(self.completed_test_list[self.usb_controller_name][2]) == 0
-                    and len(self.completed_test_list[self.usb_controller_name][3]) == 0):
-                send_keys(self.test_description_input, with_spaces=True)
             run_button = self.main_window.child_window(control_id=1013)
             run_button.wait("exists enabled visible ready", timeout=20)
             run_button.click()

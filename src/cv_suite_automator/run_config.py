@@ -70,10 +70,12 @@ def _prompt_numbered(
 
 
 def prompt_run_selection(
-    supports_uasp: bool,
+    supports_uasp: bool | None,
     input_func: Callable[[str], str] = input,
 ) -> RunSelection:
-    tests = TEST_OPTIONS + ((UASP_OPTION,) if supports_uasp else ())
+    # None is used when configuration is collected before DUT enumeration.
+    # Offer UASP provisionally and resolve it once device capabilities are known.
+    tests = TEST_OPTIONS + ((UASP_OPTION,) if supports_uasp is not False else ())
     return RunSelection(
         tests=tuple(_prompt_numbered("Test Selection", tests, input_func)),
         controllers=tuple(
@@ -82,6 +84,20 @@ def prompt_run_selection(
         protocols=tuple(
             _prompt_numbered("USB Protocol Selection", PROTOCOL_OPTIONS, input_func)
         ),
+    )
+
+
+def resolve_device_capabilities(
+    selection: RunSelection, supports_uasp: bool
+) -> RunSelection:
+    """Remove provisional selections unsupported by the enumerated DUT."""
+    if supports_uasp or "uasp" not in selection.tests:
+        return selection
+    logger.info("Skipping UASP Tests because the selected DUT does not support UASP.")
+    return RunSelection(
+        tests=tuple(test for test in selection.tests if test != "uasp"),
+        controllers=selection.controllers,
+        protocols=selection.protocols,
     )
 
 

@@ -20,18 +20,30 @@ if len(sys.argv) != 2:
     )
     sys.exit(1)
 
-# Core initializes the switchboard and discovers the connected DUT at import.
-from .core import CVSuiteAutomation, controller
 from .report_collector import ReportCollector, ReportTransferError
-from .run_config import ordered_controllers, ordered_protocols, prompt_run_selection
+from .run_config import (
+    ordered_controllers,
+    ordered_protocols,
+    prompt_run_selection,
+    resolve_device_capabilities,
+)
+
+
+# Collect all user choices before importing core, which initializes the
+# switchboard and begins DUT enumeration as an import-time side effect.
+run_selection = prompt_run_selection(supports_uasp=None)
+
+from .core import CVSuiteAutomation, controller
 from .usb_executable import find_apricorn_devices
 
 
 cv_suite = CVSuiteAutomation()
+run_selection = resolve_device_capabilities(
+    run_selection, cv_suite.device.uses_uasp
+)
 with open(cv_suite.destination_summary_json) as json_file:
     cv_suite.test_summary = json.load(json_file)
 os.makedirs(cv_suite.destination_reports_dir, exist_ok=True)
-run_selection = prompt_run_selection(cv_suite.device.uses_uasp)
 
 
 def move_to_controller(target_controller: str) -> None:

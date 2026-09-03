@@ -487,3 +487,24 @@ def test_results_before_device_selection_can_never_report_pass(tmp_path: Path) -
     assert outcome.tests_run is None
     assert outcome.failures is None
     assert (results.title, "OK", "invalid device-selection attempt") in supervisor.clicked
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_missing_dut_in_device_list_does_not_capture_diagnostics(
+    tmp_path: Path,
+) -> None:
+    class MissingDUTSupervisor(SequenceSupervisor):
+        def select_device(self, window, vendor_id, product_id):
+            return False
+
+    device = window(
+        "USB Command Verifier (xHCI - USB 3)", "Select device",
+        has_list_box=True,
+    )
+    supervisor = MissingDUTSupervisor(tmp_path, [[device]], [])
+
+    outcome = supervisor.monitor_test([], "0984", "1410", {"test": 3})
+
+    assert outcome.retry_required
+    assert "not available" in outcome.reason
+    assert list(tmp_path.iterdir()) == []

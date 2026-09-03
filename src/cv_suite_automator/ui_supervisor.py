@@ -605,14 +605,11 @@ class CVSuiteUISupervisor:
         context: dict[str, Any],
         reason: str,
     ) -> TestOutcome:
-        location = self.capture_diagnostics(reason, self.snapshots(), context)
+        # No diagnostic is needed when CV Suite never enumerated/selected the
+        # DUT, because the test did not start. All failures after selection
+        # continue through the normal screenshot routine.
         self.dismiss_window(window, "invalid device-selection attempt")
-        return TestOutcome(
-            None,
-            None,
-            "Retry",
-            f"{reason}; diagnostics saved to {location}",
-        )
+        return TestOutcome(None, None, "Retry", reason)
 
     def prepare_for_test_retry(self, context: dict[str, Any]) -> None:
         """Dismiss residue from an abandoned selection and restore the main UI."""

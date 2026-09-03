@@ -4,6 +4,7 @@ from cv_suite_automator.run_config import (
     ordered_controllers,
     ordered_protocols,
     prompt_run_selection,
+    resolve_device_capabilities,
 )
 
 
@@ -42,6 +43,23 @@ def test_execution_order_starts_with_current_controller_and_usb3() -> None:
     assert ordered_controllers(("ASMedia", "Intel"), "Intel") == ("Intel", "ASMedia")
     assert ordered_controllers(("Intel",), "ASMedia") == ("Intel",)
     assert ordered_protocols((2, 3)) == (3, 2)
+
+
+def test_pre_enumeration_selection_offers_uasp_provisionally() -> None:
+    responses = iter(("5", "", ""))
+
+    selection = prompt_run_selection(None, lambda _: next(responses))
+
+    assert selection.tests == ("uasp",)
+
+
+def test_unsupported_uasp_selection_is_removed_after_enumeration() -> None:
+    responses = iter(("", "1", "1"))
+    selection = prompt_run_selection(None, lambda _: next(responses))
+
+    resolved = resolve_device_capabilities(selection, supports_uasp=False)
+
+    assert resolved.tests == ("chapter9", "connector", "summary", "msc")
 
 
 def test_input_prompts_include_timestamp() -> None:
