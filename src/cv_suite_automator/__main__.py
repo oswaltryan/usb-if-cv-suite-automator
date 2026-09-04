@@ -100,12 +100,7 @@ def collect_reports(collector: ReportCollector) -> None:
         except ReportTransferError as exc:
             cv_suite.ui_supervisor.operator_checkpoint(
                 "Could not safely back up CV Suite reports: "
-                f"{exc}. Correct the storage condition, then press ENTER.",
-                context={
-                    "phase": "report transfer",
-                    "controller": cv_suite.usb_controller_name,
-                    "protocol": cv_suite.usb_protocol,
-                },
+                f"{exc}. Correct the storage condition, then press ENTER."
             )
 
 

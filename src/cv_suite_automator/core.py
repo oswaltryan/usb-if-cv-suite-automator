@@ -413,7 +413,6 @@ class CVSuiteAutomation:
             self.app,
             self.main_window,
             self.log_window,
-            Path(self.session_dir) / "diagnostics",
             self.failure_messages,
         )
         self.ui_supervisor.focus_main_window()
@@ -563,18 +562,11 @@ class CVSuiteAutomation:
             logger.info("    %s", outcome.reason)
 
     def _wait_for_device_after_failure(self) -> None:
-        context = {
-            "phase": "failure recovery",
-            "test": self.current_test,
-            "controller": self.usb_controller_name,
-            "protocol": self.usb_protocol,
-        }
         # CV Suite may leave its compliance driver applied after a failure. In
         # that state usb-windows.exe cannot see the DUT, so operator
         # acknowledgement is deliberately the recovery authority.
         self.ui_supervisor.operator_checkpoint(
-            "The test failed. Power-cycle and unlock the DUT, then press ENTER.",
-            context=context,
+            "The test failed. Power-cycle and unlock the DUT, then press ENTER."
         )
 
     def run_test(self, test: int) -> TestOutcome:
@@ -588,32 +580,27 @@ class CVSuiteAutomation:
         self.log_window = self.ui_supervisor.log_window
 
         def start_test():
-            baseline = tuple(self.log_window.texts())
+            selection_baseline = tuple(self.log_window.texts())
             test_list_box = self.main_window.child_window(control_id=1001)
             test_list_box.wait("exists enabled visible ready", timeout=20)
+            selected_before = tuple(test_list_box.wrapper_object().selected_indices())
             test_list_box.select(test)
             run_button = self.main_window.child_window(control_id=1013)
-            run_button.wait("exists enabled visible ready", timeout=20)
-            run_button.click()
-            return baseline
-
-        context = {
-            "phase": "test execution",
-            "test": test,
-            "test_name": self.test_list[test]["name"],
-            "controller": self.usb_controller_name,
-            "protocol": self.usb_protocol,
-        }
-        while True:
-            logger.info("--- Starting %s", self.test_list[test]["name"])
-            baseline_log = self.ui_supervisor.perform_action(
-                start_test, "test launch", {"test": test}
+            launch_baseline = self.ui_supervisor.wait_for_suite_ready(
+                test,
+                selection_baseline,
+                validation_required=test not in selected_before,
             )
+            run_button.click_input()
+            self.ui_supervisor.wait_for_test_launch(launch_baseline)
+            return launch_baseline
+
+        while True:
+            baseline_log = self.ui_supervisor.perform_action(start_test, "test launch")
             outcome = self.ui_supervisor.monitor_test(
                 self._dialog_rules(test),
                 self.device.idVendor,
                 self.device.idProduct,
-                context,
                 baseline_log,
             )
             if not outcome.retry_required:
@@ -622,10 +609,9 @@ class CVSuiteAutomation:
             self.ui_supervisor.operator_checkpoint(
                 f"DUT VID {self.device.idVendor} / PID {self.device.idProduct} "
                 "was not selected. Unlock that device, then press ENTER. "
-                "The test will be reselected so CV Suite rescans the bus.",
-                context=context,
+                "The test will be reselected so CV Suite rescans the bus."
             )
-            self.ui_supervisor.prepare_for_test_retry(context)
+            self.ui_supervisor.prepare_for_test_retry()
 
         self._record_test_outcome(outcome)
         if outcome.reconnect_required:

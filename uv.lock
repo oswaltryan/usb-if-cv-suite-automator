@@ -53,7 +53,6 @@ source = { editable = "." }
 dependencies = [
     { name = "comtypes" },
     { name = "phidget22" },
-    { name = "pillow" },
     { name = "pywin32", marker = "sys_platform == 'win32'" },
     { name = "pywinauto" },
 ]
@@ -72,7 +71,6 @@ dev = [
 requires-dist = [
     { name = "comtypes", specifier = "==1.4.11" },
     { name = "phidget22", specifier = "==1.22.20250714" },
-    { name = "pillow", specifier = ">=10.0" },
     { name = "pywin32", marker = "sys_platform == 'win32'", specifier = "==311" },
     { name = "pywinauto", specifier = "==0.6.9+usbif.1" },
 ]
@@ -180,14 +178,6 @@ version = "1.22.20250714"
 source = { registry = "wheels" }
 wheels = [
     { path = "phidget22-1.22.20250714-py3-none-win_amd64.whl" },
-]
-
-[[package]]
-name = "pillow"
-version = "12.3.0"
-source = { registry = "wheels" }
-wheels = [
-    { path = "pillow-12.3.0-cp312-cp312-win_amd64.whl" },
 ]
 
 [[package]]

@@ -2,18 +2,12 @@
 
 from __future__ import annotations
 
-import datetime as dt
-import json
 import logging
 import re
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
 from typing import Any, Callable, Iterable
-
-import win32con
-import win32gui
 
 from .logging_config import timestamped_prompt
 
@@ -24,6 +18,20 @@ RESULTS_WINDOW_TITLE = "Results"
 LOG_CONTROL_ID = 1007
 
 logger = logging.getLogger(__name__)
+
+
+def _appended_log_text(current_lines: Iterable[str], baseline_lines: Iterable[str]) -> str:
+    """Return text appended to a CV Suite log snapshot."""
+    current = list(current_lines)
+    baseline = list(baseline_lines)
+    if current[: len(baseline)] == baseline:
+        return "\n".join(current[len(baseline) :])
+
+    current_text = "\n".join(current)
+    baseline_text = "\n".join(baseline)
+    if current_text.startswith(baseline_text):
+        return current_text[len(baseline_text) :].lstrip("\r\n")
+    return current_text
 
 
 class EventKind(Enum):
@@ -185,22 +193,6 @@ def parse_log_results(lines: Iterable[str]) -> TestOutcome | None:
     return None
 
 
-def latest_failed_test_name(lines: Iterable[str]) -> str | None:
-    """Return the most recent named subtest whose stop record reports failures."""
-    log_text = "\n".join(lines)
-    pattern = re.compile(
-        r"Stopping Test\s*\[\s*(.+?):\s*\r?\n\s*"
-        r"Number of:\s*Fails\s*\(([1-9]\d*)\)",
-        re.IGNORECASE,
-    )
-    matches = pattern.findall(log_text)
-    return matches[-1][0].strip() if matches else None
-
-
-def _normalized_test_name(name: str) -> str:
-    return re.sub(r"[^a-z0-9]", "", name.casefold())
-
-
 def device_item_matches(item: str, vendor_id: str, product_id: str) -> bool:
     """Return whether a CV Suite list item identifies the exact DUT."""
     vendor_id = vendor_id.casefold().removeprefix("0x")
@@ -223,7 +215,6 @@ class CVSuiteUISupervisor:
         app: Any,
         main_window: Any,
         log_window: Any,
-        diagnostics_root: Path,
         failure_messages: Iterable[str],
         operator_input: Callable[[str], str] = input,
         poll_interval: float = 0.5,
@@ -232,7 +223,6 @@ class CVSuiteUISupervisor:
         self.app = app
         self.main_window = main_window
         self.log_window = log_window
-        self.diagnostics_root = diagnostics_root
         self.failure_messages = tuple(failure_messages)
         self.operator_input = operator_input
         self.poll_interval = poll_interval
@@ -267,8 +257,7 @@ class CVSuiteUISupervisor:
 
             if time.monotonic() >= deadline:
                 self.operator_checkpoint(
-                    f"The CV Suite main window did not become ready after {phase}.",
-                    context={"phase": phase},
+                    f"The CV Suite main window did not become ready after {phase}."
                 )
                 deadline = time.monotonic() + 60
             time.sleep(self.poll_interval)
@@ -329,7 +318,7 @@ class CVSuiteUISupervisor:
         try:
             return [self._snapshot_window(window) for window in self.app.windows()]
         except Exception as exc:
-            self.operator_checkpoint(f"CV Suite windows could not be inspected: {exc}", [])
+            self.operator_checkpoint(f"CV Suite windows could not be inspected: {exc}")
             self.reconnect()
             return [self._snapshot_window(window) for window in self.app.windows()]
 
@@ -343,7 +332,7 @@ class CVSuiteUISupervisor:
                 if self.main_window.exists(timeout=2):
                     return
             except Exception as exc:
-                self.operator_checkpoint(f"Could not reconnect to CV Suite: {exc}", [])
+                self.operator_checkpoint(f"Could not reconnect to CV Suite: {exc}")
 
     def _log_lines(self) -> list[str]:
         try:
@@ -351,149 +340,72 @@ class CVSuiteUISupervisor:
         except Exception:
             return []
 
-    def capture_diagnostics(
+    def wait_for_suite_ready(
         self,
-        reason: str,
-        snapshots: Iterable[WindowSnapshot],
-        context: dict[str, Any] | None = None,
-    ) -> Path:
-        stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S-%f")
-        context = context or {}
-        label_parts = [stamp]
-        if context.get("controller"):
-            label_parts.append(str(context["controller"]))
-        if context.get("protocol") is not None:
-            label_parts.append(f"USB{context['protocol']}")
-        if context.get("test") is not None:
-            label_parts.append(f"test-{context['test']}")
-        label = re.sub(r"[^A-Za-z0-9_.-]+", "-", "-".join(label_parts))
-        incident_dir = self.diagnostics_root / label
-        try:
-            incident_dir.mkdir(parents=True, exist_ok=True)
-        except OSError as exc:
-            incident_dir = Path.cwd() / "cv-suite-diagnostics" / label
+        test_index: int,
+        baseline_log: tuple[str, ...],
+        validation_required: bool,
+        timeout: float = 60,
+    ) -> tuple[str, ...]:
+        """Wait until CV Suite has validated and rendered the selected suite."""
+        deadline = time.monotonic() + timeout
+        stable_polls = 0
+        while time.monotonic() < deadline:
             try:
-                incident_dir.mkdir(parents=True, exist_ok=True)
-            except OSError as fallback_exc:
-                logger.error(
-                    "Warning: diagnostics could not be created at the session "
-                    "location (%s) or local fallback (%s).",
-                    exc,
-                    fallback_exc,
+                selected = tuple(
+                    self.main_window.child_window(control_id=1001)
+                    .wrapper_object()
+                    .selected_indices()
                 )
-                return Path("diagnostics-unavailable")
-        windows = list(snapshots)
-        payload = {
-            "timestamp": dt.datetime.now().isoformat(timespec="seconds"),
-            "reason": reason,
-            "context": context,
-            "windows": [
-                {
-                    "handle": window.handle,
-                    "title": window.title,
-                    "texts": list(window.texts),
-                    "buttons": list(window.buttons),
-                    "has_list_box": window.has_list_box,
-                    "visible": window.visible,
-                    "enabled": window.enabled,
-                    "class_name": window.class_name,
-                }
+                tree_count = (
+                    self.main_window.child_window(control_id=1002).wrapper_object().item_count()
+                )
+                run_enabled = self.main_window.child_window(control_id=1013).is_enabled()
+                current_log = tuple(self._log_lines())
+                validation_complete = not validation_required or (
+                    "Validation succeeded!" in _appended_log_text(current_log, baseline_log)
+                )
+                ready = (
+                    test_index in selected
+                    and tree_count > 0
+                    and run_enabled
+                    and validation_complete
+                )
+            except Exception:
+                ready = False
+                current_log = tuple(self._log_lines())
+
+            stable_polls = stable_polls + 1 if ready else 0
+            if stable_polls >= 2:
+                return current_log
+            time.sleep(self.poll_interval)
+
+        raise TimeoutError("CV Suite did not finish validating the selected test suite")
+
+    def wait_for_test_launch(self, baseline_log: tuple[str, ...], timeout: float = 20) -> None:
+        """Confirm that clicking Run caused CV Suite to begin a test launch."""
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            windows = self.snapshots()
+            if any(window.visible and not window.is_main_window for window in windows):
+                return
+            if any(
+                window.is_main_window and window.title.casefold() != MAIN_WINDOW_TITLE.casefold()
                 for window in windows
-            ],
-            "log_tail": self._log_lines()[-30:],
-        }
-        try:
-            (incident_dir / "incident.json").write_text(
-                json.dumps(payload, indent=2), encoding="utf-8"
-            )
-        except OSError as exc:
-            logger.exception("Warning: incident text could not be saved: %s", exc)
-        visible_windows = [window for window in windows if window.visible]
-        for index, window in enumerate(visible_windows, start=1):
-            if window.wrapper is None:
-                continue
-            try:
-                if window.is_main_window:
-                    self._reveal_failed_test(window.wrapper)
-                image = window.wrapper.capture_as_image()
-                image.save(incident_dir / f"window-{index}.png")
-            except Exception:
-                pass
-        return incident_dir
+            ):
+                return
+            appended = _appended_log_text(self._log_lines(), baseline_log).casefold()
+            if "now starting test" in appended or "select single item" in appended:
+                return
+            time.sleep(self.poll_interval)
 
-    def _reveal_failed_test(self, main_window: Any) -> bool:
-        """Best-effort scroll of the CV Suite test tree before a screenshot."""
-        try:
-            controls = main_window.descendants()
-        except Exception:
-            return False
-        failed_name = latest_failed_test_name(self._log_lines())
-        if not failed_name:
-            main_text = []
-            for control in controls:
-                try:
-                    text = control.window_text()
-                    if text:
-                        main_text.append(text)
-                except Exception:
-                    continue
-            failed_name = latest_failed_test_name(main_text)
-        if not failed_name:
-            return False
-        expected = _normalized_test_name(failed_name)
+        raise TimeoutError("CV Suite did not respond after Run was clicked")
 
-        for control in controls:
-            try:
-                if (
-                    control.friendly_class_name() != "TreeView"
-                    and control.class_name() != "SysTreeView32"
-                ):
-                    continue
-                items = []
-                pending = list(control.roots())
-                while pending:
-                    item = pending.pop(0)
-                    items.append(item)
-                    pending[0:0] = list(item.sub_elements())
-                for item in items:
-                    actual = _normalized_test_name(item.text())
-                    if actual and (actual == expected or expected in actual or actual in expected):
-                        item.ensure_visible()
-                        # TVM_ENSUREVISIBLE changes the scroll position immediately,
-                        # but the native tree may not paint its items until the next
-                        # message cycle.  Force that paint before capture_as_image().
-                        try:
-                            win32gui.RedrawWindow(
-                                control.handle,
-                                None,
-                                None,
-                                win32con.RDW_INVALIDATE
-                                | win32con.RDW_ERASE
-                                | win32con.RDW_UPDATENOW
-                                | win32con.RDW_ALLCHILDREN,
-                            )
-                        except Exception:
-                            # Revealing the item is still useful if repainting is not
-                            # supported by a wrapper or by a future backend.
-                            pass
-                        return True
-            except Exception:
-                continue
-        return False
-
-    def operator_checkpoint(
-        self,
-        reason: str,
-        snapshots: Iterable[WindowSnapshot] | None = None,
-        context: dict[str, Any] | None = None,
-    ) -> None:
-        windows = list(snapshots) if snapshots is not None else self.snapshots()
-        location = self.capture_diagnostics(reason, windows, context)
+    def operator_checkpoint(self, reason: str) -> None:
         print()
         logger.info("%s", "=" * 70)
         logger.info("OPERATOR ACTION REQUIRED")
         logger.info("%s", reason)
-        logger.info("Diagnostics: %s", location)
         logger.info("Correct the condition, then return to this window.")
         logger.info("%s", "=" * 70)
         self.operator_input(timestamped_prompt("Press ENTER to rescan and continue: "))
@@ -512,7 +424,6 @@ class CVSuiteUISupervisor:
         self,
         action: Callable[[], Any],
         phase: str,
-        context: dict[str, Any] | None = None,
     ) -> Any:
         """Retry a safe UI action before escalating it to the operator."""
         attempts = 0
@@ -523,10 +434,7 @@ class CVSuiteUISupervisor:
             except Exception as exc:
                 attempts += 1
                 if attempts >= 3 or time.monotonic() >= deadline:
-                    self.operator_checkpoint(
-                        f"Could not complete {phase} after 3 attempts: {exc}",
-                        context={"phase": phase, **(context or {})},
-                    )
+                    self.operator_checkpoint(f"Could not complete {phase} after 3 attempts: {exc}")
                     attempts = 0
                     deadline = time.monotonic() + 60
                 time.sleep(self.poll_interval)
@@ -544,9 +452,7 @@ class CVSuiteUISupervisor:
                     attempts += 1
             if attempts >= 3 or time.monotonic() >= deadline:
                 self.operator_checkpoint(
-                    f"Could not click '{button}' during {phase} after 3 attempts.",
-                    self.snapshots(),
-                    {"phase": phase, "button": button},
+                    f"Could not click '{button}' during {phase} after 3 attempts."
                 )
                 attempts = 0
                 deadline = time.monotonic() + 60
@@ -585,16 +491,12 @@ class CVSuiteUISupervisor:
     def _retry_missing_dut(
         self,
         window: WindowSnapshot,
-        context: dict[str, Any],
         reason: str,
     ) -> TestOutcome:
-        # No diagnostic is needed when CV Suite never enumerated/selected the
-        # DUT, because the test did not start. All failures after selection
-        # continue through the normal screenshot routine.
         self.dismiss_window(window, "invalid device-selection attempt")
         return TestOutcome(None, None, "Retry", reason)
 
-    def prepare_for_test_retry(self, context: dict[str, Any]) -> None:
+    def prepare_for_test_retry(self) -> None:
         """Dismiss residue from an abandoned selection and restore the main UI."""
         deadline = time.monotonic() + 60
         while True:
@@ -628,16 +530,12 @@ class CVSuiteUISupervisor:
                     return
                 if blocking:
                     self.operator_checkpoint(
-                        f"Cannot retry while '{blocking[0].title}' is blocking CV Suite.",
-                        windows,
-                        context,
+                        f"Cannot retry while '{blocking[0].title}' is blocking CV Suite."
                     )
 
             if time.monotonic() >= deadline:
                 self.operator_checkpoint(
-                    "CV Suite did not return to its main window for test reselection.",
-                    windows,
-                    context,
+                    "CV Suite did not return to its main window for test reselection."
                 )
                 deadline = time.monotonic() + 60
             time.sleep(self.poll_interval)
@@ -647,7 +545,6 @@ class CVSuiteUISupervisor:
         rules: Iterable[DialogRule],
         vendor_id: str,
         product_id: str,
-        context: dict[str, Any],
         baseline_log: tuple[str, ...] = (),
     ) -> TestOutcome:
         rules = tuple(rules)
@@ -677,10 +574,8 @@ class CVSuiteUISupervisor:
                 if not device_selected and event.window is not None:
                     return self._retry_missing_dut(
                         event.window,
-                        context,
                         "CV Suite failed before the exact DUT was selected",
                     )
-                location = self.capture_diagnostics(event.reason, windows, context)
                 if event.window is not None:
                     safe_buttons = {"ok", "close"}
                     for button in event.window.buttons:
@@ -695,7 +590,7 @@ class CVSuiteUISupervisor:
                     parsed.tests_run if parsed and parsed.failures else None,
                     parsed.failures if parsed and parsed.failures else None,
                     "Fail",
-                    f"CV Suite failure; diagnostics saved to {location}",
+                    "CV Suite reported a failure",
                     reconnect_required=event.reconnect_required,
                 )
 
@@ -703,7 +598,6 @@ class CVSuiteUISupervisor:
                 if not device_selected:
                     return self._retry_missing_dut(
                         event.window,
-                        context,
                         "CV Suite produced results before the exact DUT was selected",
                     )
                 result_deadline = time.monotonic() + 10
@@ -717,27 +611,12 @@ class CVSuiteUISupervisor:
                 self.click_button(event.window, "OK", "results acknowledgement")
                 self.wait_for_main_window("results acknowledgement")
                 if outcome is not None:
-                    if outcome.failed:
-                        location = self.capture_diagnostics(
-                            "CV Suite completed the test with failures",
-                            self.snapshots(),
-                            context,
-                        )
-                        return TestOutcome(
-                            outcome.tests_run,
-                            outcome.failures,
-                            outcome.status,
-                            f"Test failures; diagnostics saved to {location}",
-                        )
                     return outcome
-                location = self.capture_diagnostics(
-                    "Results appeared without parseable test counts", windows, context
-                )
                 return TestOutcome(
                     None,
                     None,
                     "Fail",
-                    f"Missing result counts; diagnostics saved to {location}",
+                    "Results appeared without parseable test counts",
                 )
 
             if event.kind is EventKind.PROMPT and event.window and event.rule:
@@ -754,7 +633,6 @@ class CVSuiteUISupervisor:
                     continue
                 return self._retry_missing_dut(
                     event.window,
-                    context,
                     f"DUT VID {vendor_id} / PID {product_id} was not available "
                     "in the CV Suite device list",
                 )
@@ -765,16 +643,12 @@ class CVSuiteUISupervisor:
                     unknown_signature = signature
                     unknown_since = time.monotonic()
                 elif time.monotonic() - unknown_since >= 3:
-                    self.operator_checkpoint(event.reason, windows, context)
+                    self.operator_checkpoint(event.reason)
                     unknown_signature = ""
                     last_progress = time.monotonic()
 
             elif time.monotonic() - last_progress >= self.inactivity_timeout:
-                self.operator_checkpoint(
-                    "CV Suite showed no window or log progress for 5 minutes.",
-                    windows,
-                    context,
-                )
+                self.operator_checkpoint("CV Suite showed no window or log progress for 5 minutes.")
                 last_progress = time.monotonic()
 
             if event.kind is not EventKind.UNKNOWN:
@@ -800,9 +674,7 @@ class CVSuiteUISupervisor:
                     message.casefold() in searchable for message in self.failure_messages
                 )
                 if not window.is_main_window and (failure_title or failure_body or known_failure):
-                    self.operator_checkpoint(
-                        f"CV Suite reported a failure during {phase}.", windows, {"phase": phase}
-                    )
+                    self.operator_checkpoint(f"CV Suite reported a failure during {phase}.")
                     deadline = time.monotonic() + 60
                     break
                 if text.casefold() in searchable:
@@ -821,17 +693,13 @@ class CVSuiteUISupervisor:
                         unknown_since = time.monotonic()
                     elif time.monotonic() - unknown_since >= 3:
                         self.operator_checkpoint(
-                            f"Unexpected window appeared during {phase}: {unknown[0].title}",
-                            windows,
-                            {"phase": phase},
+                            f"Unexpected window appeared during {phase}: {unknown[0].title}"
                         )
                         unknown_signature = ""
                         deadline = time.monotonic() + 60
                 elif time.monotonic() >= deadline:
                     self.operator_checkpoint(
-                        f"Timed out waiting for the expected CV Suite prompt during {phase}.",
-                        windows,
-                        {"phase": phase, "expected_text": text},
+                        f"Timed out waiting for the expected CV Suite prompt during {phase}."
                     )
                     deadline = time.monotonic() + 60
                 else:

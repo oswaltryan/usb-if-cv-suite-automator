@@ -53,11 +53,12 @@ The relay layer (`Phidget22`) controls switchboard channels used during automati
 
 CV Suite windows are monitored as events instead of being assumed to appear in
 a fixed order. Recognized failures are recorded immediately, delayed controls
-are retried, and unknown popups are preserved for operator review. Intervention
-checkpoints save screenshots and control text under the active session's
-`diagnostics` directory and wait for an explicit Enter acknowledgement.
-After a failed test, that acknowledgement is authoritative because CV Suite's
-compliance driver can prevent the bundled USB discovery tool from seeing the DUT.
+are retried, and unknown popups pause for operator review. Intervention
+checkpoints wait for an explicit Enter acknowledgement without creating separate
+diagnostic screenshots or JSON artifacts.
+After a device-loss failure, that acknowledgement is authoritative because CV
+Suite's compliance driver can prevent the bundled USB discovery tool from seeing
+the DUT.
 
 ### 4. Structured artifact model for reviewability
 

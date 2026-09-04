@@ -14,7 +14,6 @@ authors = [
 dependencies = [
   "comtypes==1.4.11",
   "phidget22==1.22.20250714",
-  "pillow>=10.0",
   "pywin32==311; platform_system == 'Windows'",
   "pywinauto==0.6.9+usbif.1",
 ]

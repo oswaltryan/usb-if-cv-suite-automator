@@ -9,7 +9,6 @@ from cv_suite_automator.ui_supervisor import (
     WindowSnapshot,
     classify_windows,
     device_item_matches,
-    latest_failed_test_name,
     parse_log_results,
 )
 
@@ -208,27 +207,6 @@ def test_parse_log_results_rejects_missing_counts() -> None:
     assert parse_log_results(["Test complete", "Failures unavailable"]) is None
 
 
-def test_latest_failed_test_name_uses_last_failing_subtest() -> None:
-    name = latest_failed_test_name(
-        [
-            "Stopping Test [ First Test:\n    Number of: Fails (1); Aborts (0) ]",
-            "Stopping Test [ Passing Test:\n    Number of: Fails (0); Aborts (0) ]",
-            "Stopping Test [ Relevant Failure:\n    Number of: Fails (2); Aborts (0) ]",
-        ]
-    )
-
-    assert name == "Relevant Failure"
-
-
-def test_latest_failed_test_name_returns_none_without_failed_subtest() -> None:
-    assert (
-        latest_failed_test_name(
-            ["Stopping Test [ Passing Test:\n Number of: Fails (0); Aborts (0) ]"]
-        )
-        is None
-    )
-
-
 def test_known_device_failure_requires_reconnect() -> None:
     event = classify_windows(
         [window("Error", "No Device Under Test")],
@@ -253,76 +231,6 @@ def test_generic_compliance_failure_does_not_require_reconnect() -> None:
 
     assert event.kind is EventKind.FAILURE
     assert not event.reconnect_required
-
-
-def test_failed_tree_item_is_scrolled_into_view_for_diagnostics(tmp_path: Path) -> None:
-    class Log:
-        def texts(self):
-            return []
-
-    class Item:
-        def __init__(self):
-            self.was_revealed = False
-
-        def text(self):
-            return "TD 9.15 L1 Suspend/Resume Test (Configuration Index 0)"
-
-        def sub_elements(self):
-            return []
-
-        def ensure_visible(self):
-            self.was_revealed = True
-
-    item = Item()
-
-    class Branch(Item):
-        def text(self):
-            return "Configured State"
-
-        def sub_elements(self):
-            return [item]
-
-    branch = Branch()
-
-    class Tree:
-        def friendly_class_name(self):
-            return "TreeView"
-
-        def class_name(self):
-            return "SysTreeView32"
-
-        def window_text(self):
-            return ""
-
-        def roots(self):
-            return [branch]
-
-    class Main:
-        def descendants(self):
-            tree = Tree()
-
-            class LogText:
-                def friendly_class_name(self):
-                    return "Edit"
-
-                def class_name(self):
-                    return "RichEdit"
-
-                def window_text(self):
-                    return (
-                        "Stopping Test [ L1Suspend/Resume Test "
-                        "(Configuration Index 0):\n"
-                        " Number of: Fails (1); Aborts (0) ]"
-                    )
-
-            return [tree, LogText()]
-
-    supervisor = CVSuiteUISupervisor(
-        EmptyApp(), None, Log(), tmp_path, [], operator_input=lambda _: ""
-    )
-
-    assert supervisor._reveal_failed_test(Main()) is True
-    assert item.was_revealed is True
 
 
 class EmptyApp:
@@ -371,13 +279,116 @@ class MainWindowApp(EmptyApp):
         return self.main_window
 
 
+class StaticControl:
+    def __init__(self, *, selected=(), item_count=0, enabled=False):
+        self.selected = selected
+        self.count = item_count
+        self.enabled = enabled
+
+    def wrapper_object(self):
+        return self
+
+    def selected_indices(self):
+        return self.selected
+
+    def item_count(self):
+        return self.count
+
+    def is_enabled(self):
+        return self.enabled
+
+
+class LaunchMainWindow:
+    def __init__(self, test_index: int):
+        self.controls = {
+            1001: StaticControl(selected=(test_index,)),
+            1002: StaticControl(item_count=1),
+            1013: StaticControl(enabled=True),
+        }
+
+    def child_window(self, control_id):
+        return self.controls[control_id]
+
+
+class ReadinessSupervisor(CVSuiteUISupervisor):
+    def __init__(self, test_index: int, log_sequences):
+        super().__init__(
+            EmptyApp(),
+            LaunchMainWindow(test_index),
+            EmptyLog(),
+            [],
+            poll_interval=0,
+        )
+        self.log_sequences = list(log_sequences)
+        self.last_log = []
+        self.log_reads = 0
+
+    def _log_lines(self):
+        self.log_reads += 1
+        if self.log_sequences:
+            self.last_log = self.log_sequences.pop(0)
+        return list(self.last_log)
+
+
+def test_suite_readiness_requires_new_validation_and_two_stable_polls() -> None:
+    baseline = ("Old suite", "Validation succeeded!")
+    supervisor = ReadinessSupervisor(
+        17,
+        [
+            list(baseline),
+            [*baseline, 'Validating "MSC Tests.cvtests" with MSXML Version 6...'],
+            [*baseline, "Validating MSC", "Validation succeeded!"],
+            [*baseline, "Validating MSC", "Validation succeeded!"],
+        ],
+    )
+
+    launch_baseline = supervisor.wait_for_suite_ready(17, baseline, validation_required=True)
+
+    assert launch_baseline[-1] == "Validation succeeded!"
+    assert supervisor.log_reads == 4
+
+
+def test_already_selected_suite_can_use_its_existing_ready_state() -> None:
+    supervisor = ReadinessSupervisor(17, [["existing log"], ["existing log"]])
+
+    launch_baseline = supervisor.wait_for_suite_ready(
+        17, ("existing log",), validation_required=False
+    )
+
+    assert launch_baseline == ("existing log",)
+    assert supervisor.log_reads == 2
+
+
+def test_launch_confirmation_ignores_historical_start_log_and_waits_for_transition() -> None:
+    class LaunchSupervisor(ReadinessSupervisor):
+        def __init__(self):
+            super().__init__(17, [["Now Starting Test: old"], ["Now Starting Test: old"]])
+            self.window_sequences = [
+                [window("USB 3 Gen X Command Verifier")],
+                [
+                    window("USB 3 Gen X Command Verifier"),
+                    window("USB Command Verifier (xHCI - USB 3)", "Select device"),
+                ],
+            ]
+            self.snapshot_reads = 0
+
+        def snapshots(self):
+            self.snapshot_reads += 1
+            return self.window_sequences.pop(0)
+
+    supervisor = LaunchSupervisor()
+
+    supervisor.wait_for_test_launch(("Now Starting Test: old",))
+
+    assert supervisor.snapshot_reads == 2
+
+
 class SequenceSupervisor(CVSuiteUISupervisor):
-    def __init__(self, tmp_path: Path, sequences, log_lines):
+    def __init__(self, _tmp_path: Path, sequences, log_lines):
         super().__init__(
             EmptyApp(),
             None,
             EmptyLog(),
-            tmp_path,
             ["No Device Under Test"],
             operator_input=lambda _: "",
             poll_interval=0,
@@ -404,52 +415,8 @@ class SequenceSupervisor(CVSuiteUISupervisor):
     def wait_for_main_window(self, phase):
         return None
 
-    def prepare_for_test_retry(self, context):
+    def prepare_for_test_retry(self):
         return None
-
-
-def test_diagnostics_are_written_when_screenshot_is_unavailable(tmp_path: Path) -> None:
-    supervisor = CVSuiteUISupervisor(
-        EmptyApp(), None, EmptyLog(), tmp_path, [], operator_input=lambda _: ""
-    )
-    incident = supervisor.capture_diagnostics(
-        "unknown popup", [window("Unexpected", "details")], {"test": 6}
-    )
-    content = (incident / "incident.json").read_text(encoding="utf-8")
-    assert "unknown popup" in content
-    assert "Unexpected" in content
-    assert '"test": 6' in content
-
-
-def test_diagnostics_do_not_capture_hidden_helper_windows(tmp_path: Path) -> None:
-    class SavedImage:
-        def save(self, path):
-            Path(path).write_bytes(b"image")
-
-    class CapturableWindow:
-        def __init__(self):
-            self.capture_count = 0
-
-        def capture_as_image(self):
-            self.capture_count += 1
-            return SavedImage()
-
-    visible_wrapper = CapturableWindow()
-    hidden_wrapper = CapturableWindow()
-    visible = window("USB 3 Gen X Command Verifier", visible=True)
-    visible.wrapper = visible_wrapper
-    hidden = window("", visible=False)
-    hidden.wrapper = hidden_wrapper
-    supervisor = CVSuiteUISupervisor(
-        EmptyApp(), None, EmptyLog(), tmp_path, [], operator_input=lambda _: ""
-    )
-
-    incident = supervisor.capture_diagnostics("failure", [visible, hidden])
-
-    assert visible_wrapper.capture_count == 1
-    assert hidden_wrapper.capture_count == 0
-    assert (incident / "window-1.png").exists()
-    assert not (incident / "window-2.png").exists()
 
 
 def test_safe_action_is_retried_before_operator_escalation(tmp_path: Path) -> None:
@@ -457,7 +424,6 @@ def test_safe_action_is_retried_before_operator_escalation(tmp_path: Path) -> No
         EmptyApp(),
         None,
         EmptyLog(),
-        tmp_path,
         [],
         operator_input=lambda _: "",
         poll_interval=0,
@@ -476,9 +442,9 @@ def test_safe_action_is_retried_before_operator_escalation(tmp_path: Path) -> No
     assert list(tmp_path.iterdir()) == []
 
 
-def test_focus_main_window_restores_and_activates_cv_suite(tmp_path: Path) -> None:
+def test_focus_main_window_restores_and_activates_cv_suite() -> None:
     main_window = FocusableWindow(minimized=True)
-    supervisor = CVSuiteUISupervisor(EmptyApp(), main_window, EmptyLog(), tmp_path, [])
+    supervisor = CVSuiteUISupervisor(EmptyApp(), main_window, EmptyLog(), [])
 
     supervisor.focus_main_window()
 
@@ -486,10 +452,10 @@ def test_focus_main_window_restores_and_activates_cv_suite(tmp_path: Path) -> No
     assert main_window.focused is True
 
 
-def test_modal_transition_waits_for_and_focuses_main_window(tmp_path: Path) -> None:
+def test_modal_transition_waits_for_and_focuses_main_window() -> None:
     main_window = FocusableWindow()
     supervisor = CVSuiteUISupervisor(
-        MainWindowApp(main_window), None, EmptyLog(), tmp_path, [], poll_interval=0
+        MainWindowApp(main_window), None, EmptyLog(), [], poll_interval=0
     )
 
     supervisor.wait_for_main_window("controller confirmation")
@@ -516,7 +482,6 @@ def test_monitor_drives_device_prompt_and_result_sequence(tmp_path: Path) -> Non
         [DialogRule(1, "First"), DialogRule(2, "Second", "Yes")],
         "0984",
         "1410",
-        {"test": 3},
         baseline_log=("old",),
     )
 
@@ -525,7 +490,7 @@ def test_monitor_drives_device_prompt_and_result_sequence(tmp_path: Path) -> Non
     assert (results.title, "OK", "results acknowledgement") in supervisor.clicked
 
 
-def test_completed_compliance_failure_captures_diagnostics_without_reconnect(
+def test_completed_compliance_failure_returns_without_diagnostics_or_reconnect(
     tmp_path: Path,
 ) -> None:
     device = window(
@@ -538,15 +503,19 @@ def test_completed_compliance_failure_captures_diagnostics_without_reconnect(
     supervisor = SequenceSupervisor(
         tmp_path,
         [[device], [results], [main]],
-        ["TEST RESULTS: [ Passed (35); Failed (1) ]"],
+        [
+            "Stopping Test [ L1Suspend/Resume Test (Configuration Index 0):\n"
+            " Number of: Fails (1); Aborts (0) ]",
+            "TEST RESULTS: [ Passed (35); Failed (1) ]",
+        ],
     )
 
-    outcome = supervisor.monitor_test([], "0984", "1410", {"test": 1})
+    outcome = supervisor.monitor_test([], "0984", "1410")
 
     assert outcome.summary_values() == [36, 1, "Fail"]
     assert not outcome.reconnect_required
-    assert "diagnostics saved" in outcome.reason
-    assert list(tmp_path.glob("*/incident.json"))
+    assert outcome.reason == ""
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_monitor_failure_preempts_and_returns_null_count_failure(tmp_path: Path) -> None:
@@ -558,11 +527,11 @@ def test_monitor_failure_preempts_and_returns_null_count_failure(tmp_path: Path)
     failure = window("Failure Details", "The test failed", buttons=("OK",))
     supervisor = SequenceSupervisor(tmp_path, [[device], [failure]], [])
 
-    outcome = supervisor.monitor_test([], "0984", "1410", {"test": 6})
+    outcome = supervisor.monitor_test([], "0984", "1410")
 
     assert outcome.summary_values() == [None, None, "Fail"]
     assert supervisor.clicked == [(failure.title, "OK", "failure acknowledgement")]
-    assert list(tmp_path.glob("*/incident.json"))
+    assert list(tmp_path.iterdir()) == []
 
 
 @pytest.mark.parametrize(
@@ -582,7 +551,7 @@ def test_results_before_device_selection_can_never_report_pass(tmp_path: Path) -
     results = window("Results", buttons=("OK",))
     supervisor = SequenceSupervisor(tmp_path, [[results]], ["Tests run (4), Failures (0)"])
 
-    outcome = supervisor.monitor_test([], "0984", "1410", {"test": 3}, baseline_log=("old",))
+    outcome = supervisor.monitor_test([], "0984", "1410", baseline_log=("old",))
 
     assert outcome.retry_required
     assert outcome.tests_run is None
@@ -591,7 +560,7 @@ def test_results_before_device_selection_can_never_report_pass(tmp_path: Path) -
     assert list(tmp_path.iterdir()) == []
 
 
-def test_missing_dut_in_device_list_does_not_capture_diagnostics(
+def test_missing_dut_in_device_list_returns_retry_without_artifacts(
     tmp_path: Path,
 ) -> None:
     class MissingDUTSupervisor(SequenceSupervisor):
@@ -605,7 +574,7 @@ def test_missing_dut_in_device_list_does_not_capture_diagnostics(
     )
     supervisor = MissingDUTSupervisor(tmp_path, [[device]], [])
 
-    outcome = supervisor.monitor_test([], "0984", "1410", {"test": 3})
+    outcome = supervisor.monitor_test([], "0984", "1410")
 
     assert outcome.retry_required
     assert "not available" in outcome.reason
