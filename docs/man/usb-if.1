@@ -1,0 +1,54 @@
+.TH USB-IF 1 "September 2026" "cv-suite-automator 0.2.1" "User Commands"
+.SH NAME
+usb-if \- automate USB-IF CV Suite test runs
+.SH SYNOPSIS
+.B usb-if
+.RB { \-h | \-\-help }
+.PP
+.B usb-if
+.I CHIPSET
+.SH DESCRIPTION
+.B usb-if
+runs the interactive CV Suite automation workflow on a Windows 11 validation
+host. It drives USB-IF CV Suite, controls the USB switchboard, and collects the
+reports produced by the selected tests.
+.PP
+At startup, the program prompts for tests, host controllers, and USB protocol
+modes. Press Enter at a selection prompt to select every available choice.
+When both host controllers are selected, the operator is prompted once to move
+the device between controller ports.
+.SH ARGUMENTS
+.TP
+.I CHIPSET
+The bridge controller chipset name used to identify the test session, for
+example
+.BR 3861EN-FL .
+.SH OPTIONS
+.TP
+.B \-h, \-\-help
+Show a concise command-line usage summary and exit without initializing lab
+hardware.
+.SH REQUIREMENTS
+The command requires a Windows 11 validation host, USB-IF CV Suite, an unlocked
+supported device, the Phidgets relay controller and USB2/USB3 switchboard, and
+the configured external results drive.
+.SH OUTPUT
+Each run saves the CV Suite HTML reports and a
+.B summary.json
+file in a timestamped session directory on the configured results drive.
+Reports are grouped by host controller and USB protocol.
+.SH EXIT STATUS
+.TP
+.B 0
+The selected run completed successfully.
+.TP
+.B 1
+The command was invoked incorrectly or the automation could not continue.
+.SH EXAMPLE
+.nf
+usb-if "3861EN-FL"
+.fi
+.SH LIMITATIONS
+The workflow is Windows-only and depends on lab-specific hardware and CV Suite
+window behavior. A physical cable move is required when both host controllers
+are selected.

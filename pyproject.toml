@@ -51,6 +51,9 @@ include = ["cv_suite_automator*"]
 [tool.setuptools.package-data]
 cv_suite_automator = ["summary_template.json", "bin/*.exe"]
 
+[tool.setuptools.data-files]
+"share/man/man1" = ["docs/man/usb-if.1"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
