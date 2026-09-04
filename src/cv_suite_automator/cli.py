@@ -1,4 +1,4 @@
-"""Installed command-line entry point for CV Suite automation."""
+"""Installed command-line entry point for CV Suite automation and parsing."""
 
 from __future__ import annotations
 
@@ -11,19 +11,60 @@ from collections.abc import Sequence
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="usb-if",
+        description="Run USB-IF CV Suite automation or parse existing results.",
+    )
+    commands = parser.add_subparsers(
+        dest="command",
+        metavar="{run,parse}",
+        title="commands",
+        required=True,
+    )
+
+    run_parser = commands.add_parser(
+        "run",
+        help="run the interactive CV Suite automation workflow",
         description="Run the interactive USB-IF CV Suite automation workflow.",
     )
-    parser.add_argument(
+    run_parser.add_argument(
         "chipset",
         metavar="CHIPSET",
         help="bridge controller chipset used to identify the test session",
     )
+    parse_parser = commands.add_parser(
+        "parse",
+        help="summarize failures from an existing firmware directory",
+        description="Parse exact CV Suite failures for one firmware version.",
+    )
+    parse_parser.add_argument(
+        "directory",
+        metavar="DIRECTORY",
+        help=(
+            "firmware directory shaped as "
+            r"{results_drive}\USB-IF Results\{product}\{firmware_version}"
+        ),
+    )
     return parser
 
 
+def _run_parser(directory: str, parser: argparse.ArgumentParser) -> None:
+    from .results_parser import ResultsParseError, write_results
+
+    try:
+        destination = write_results(directory)
+    except ResultsParseError as exc:
+        parser.error(str(exc))
+    print(destination)
+
+
 def main(argv: Sequence[str] | None = None) -> None:
-    """Run the package's interactive automation workflow."""
-    arguments = _parser().parse_args(argv)
+    """Run automation or parse a firmware directory of existing reports."""
+    command_arguments = list(sys.argv[1:] if argv is None else argv)
+    parser = _parser()
+    arguments = parser.parse_args(command_arguments)
+    if arguments.command == "parse":
+        _run_parser(arguments.directory, parser)
+        return
+
     original_argv = sys.argv
     sys.argv = [original_argv[0], arguments.chipset]
     try:

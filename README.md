@@ -109,7 +109,7 @@ uv sync --offline
 Run:
 
 ```console
-uv run usb-if "{chipset}"
+uv run usb-if run "{chipset}"
 ```
 
 At startup, the runner presents numbered Test, Controller, and USB Protocol
@@ -119,7 +119,7 @@ USB2 or USB3 suite. UASP is offered provisionally before DUT enumeration and
 is skipped automatically when the selected device does not support it.
 
 Operator workflow:
-- Start the automation with `uv run usb-if "{chipset}"`.
+- Start the automation with `uv run usb-if run "{chipset}"`.
 - If both controllers were selected, perform the physical cable move when prompted.
 - Review artifacts in the session output directory.
 
@@ -140,6 +140,26 @@ The automator tracks reports created by each automated test, verifies an
 external backup, and retains another copy under the CV Suite output directory
 using the same device/session/OS/controller/protocol hierarchy. Existing CV
 Suite output, including reports from manual runs, is left untouched.
+
+### Parse failures
+
+Create a failure breakdown for exactly one firmware version:
+
+```console
+uv run usb-if parse "M:\USB-IF Results\<product>\<firmware_version>"
+```
+
+The selected directory must be the firmware directory, not the product
+directory containing multiple firmware versions. The command reads every
+capacity, timestamped session, and HTML report beneath it, then writes
+`results.json` alongside the capacity directories. Each capacity lists its
+exact `Test-Fail` entries with operating-system, controller, protocol, and
+suite context. The top-level `aggregate` list appears first, sums CV Suite's
+reported failure counts across all capacities, and adds a `DUTs` list containing
+the unique, naturally sorted capacity-folder names that contributed to each
+failure. The `capacities` breakdown follows it. Every failed attempt is counted,
+including an attempt followed by a passing rerun; suite failures that name no
+individual test are reported as `Unattributed suite failure`.
 
 ## Development checks
 
