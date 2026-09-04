@@ -40,6 +40,7 @@ from pywinauto.keyboard import send_keys
 # These are local imports in your environment:
 from .hardware import IOController
 from .logging_config import timestamped_prompt
+from .session_layout import qualification_session_layout, standard_session_layout
 from .ui_supervisor import (
     CVSuiteUISupervisor,
     DialogRule,
@@ -167,7 +168,7 @@ class CVSuiteAutomation:
         cv_suite.close_cv_suite()
     """
 
-    def __init__(self, storage_manufacturer):
+    def __init__(self, storage_manufacturer, *, qualification=False):
         """
         Initializes the CVSuiteAutomation class by detecting the device and
         creating a Windows 11 test session.
@@ -204,20 +205,24 @@ class CVSuiteAutomation:
         self.user_home = Path.home()
         self.windows_user_name = self.user_home.name
 
-        # sys.argv[1] is expected to be the "bridge controller chipset" string.
-        # We also append the device model name (self.device.iProduct).
-        self.test_description_input = sys.argv[1] + " " + self.device.iProduct
-
         # bcdUSB might look like "3.2" => self.usb_protocol = 3
         self.usb_protocol = int(self.device.bcdUSB)
 
-        # Use the operator-provided storage manufacturer in the capacity folder.
+        self.qualification = qualification
         self.storage_manufacturer = storage_manufacturer
-        self.capacity_directory_name = f"{self.device.driveSizeGB}GB {self.storage_manufacturer}"
-
-        # Define base paths needed for the session discovery logic
-        self.destination_drive = "M:\\USB-IF Results"
-        self.source_summary_json = str(Path(__file__).with_name("summary_template.json"))
+        if qualification:
+            layout = qualification_session_layout(self.device)
+        else:
+            layout = standard_session_layout(self.device, sys.argv[1], storage_manufacturer)
+        self.test_description_input = layout.test_description
+        self.capacity_directory_name = layout.capacity_directory
+        self.destination_drive = layout.destination_root
+        self.summary_filename = layout.summary_filename
+        self.source_summary_json = (
+            str(Path(__file__).with_name("summary_template.json"))
+            if layout.uses_summary_template
+            else None
+        )
 
         # --- Stage 2: Find or create the test session using our new helper method ---
         self.test_datetime = self._create_session()
@@ -229,7 +234,7 @@ class CVSuiteAutomation:
             f"{self.test_datetime}"
         )
         self.destination_reports_dir = f"{self.session_dir}\\Windows {self.windows_version}"
-        self.destination_summary_json = f"{self.session_dir}\\summary.json"
+        self.destination_summary_json = f"{self.session_dir}\\{self.summary_filename}"
 
         self.source_reports_dir = str(
             self.user_home / "Documents" / "USB-IF Test Suite" / "CV Reports" / "USB3CV"
@@ -366,8 +371,9 @@ class CVSuiteAutomation:
             new_session_path = os.path.join(base_device_dir, new_session_id)
             suffix += 1
         os.makedirs(new_session_path, exist_ok=True)
-        destination_summary_json = os.path.join(new_session_path, "summary.json")
-        shutil.copy(src=self.source_summary_json, dst=destination_summary_json)
+        if self.source_summary_json is not None:
+            destination_summary_json = os.path.join(new_session_path, self.summary_filename)
+            shutil.copy(src=self.source_summary_json, dst=destination_summary_json)
 
         return new_session_id
 
@@ -573,7 +579,7 @@ class CVSuiteAutomation:
             "The test failed. Power-cycle and unlock the DUT, then press ENTER."
         )
 
-    def run_test(self, test: int) -> TestOutcome:
+    def run_test(self, test: int, *, record_outcome: bool = True) -> TestOutcome:
         """Start, supervise, record, and recover a single CV Suite test."""
         if self.ui_supervisor is None:
             raise RuntimeError("CV Suite UI supervisor has not been initialized.")
@@ -617,7 +623,8 @@ class CVSuiteAutomation:
             )
             self.ui_supervisor.prepare_for_test_retry()
 
-        self._record_test_outcome(outcome)
+        if record_outcome:
+            self._record_test_outcome(outcome)
         if outcome.reconnect_required:
             self._wait_for_device_after_failure()
         return outcome

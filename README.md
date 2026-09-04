@@ -171,6 +171,38 @@ failures that name no individual test are reported as
 Enhanced SuperSpeed devices were detected, are excluded unless the same report
 contains a separately attributed test failure.
 
+## Storage qualification
+
+Run the dedicated qualification flow without a chipset argument or interactive
+test-selection prompts:
+
+```console
+uv run usb-if qual
+```
+
+The DUT must enumerate as USB3. If it is initially detected on USB2, the command
+asks the operator to reconnect it on USB3 and continues polling until the same
+DUT is available there. It then uses the newly detected host controller, opens
+CV Suite once, runs only `MSC Tests` three consecutive times, and closes CV
+Suite once. A failed attempt does not stop either remaining attempt; the
+existing operator-assisted device recovery still applies when CV Suite loses
+the DUT.
+
+Qualification artifacts use device-derived names and do not include chipset or
+storage-manufacturer input:
+
+```text
+M:\Storage Qualification\<product>\v<firmware>\<capacity>GB\<timestamp>\
+```
+
+HTML reports are grouped beneath
+`Windows 11\<detected controller>\USB3\`. The session's
+`qualification_summary.json` records the exact counts, status, and reason for
+each attempt as it completes. Its `overall_status` remains `In Progress` until
+all three attempts finish, then becomes `Pass` only when every attempt passed;
+otherwise it becomes `Fail`. Individual test failures do not change the
+command's successful exit status, while workflow or infrastructure errors do.
+
 ## Development checks
 
 Run fast unit tests (no hardware required):

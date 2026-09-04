@@ -11,11 +11,11 @@ from collections.abc import Sequence
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="usb-if",
-        description="Run USB-IF CV Suite automation or parse existing results.",
+        description="Run USB-IF CV Suite automation, qualification, or results parsing.",
     )
     commands = parser.add_subparsers(
         dest="command",
-        metavar="{run,parse}",
+        metavar="{run,qual,parse}",
         title="commands",
         required=True,
     )
@@ -29,6 +29,13 @@ def _parser() -> argparse.ArgumentParser:
         "chipset",
         metavar="CHIPSET",
         help="bridge controller chipset used to identify the test session",
+    )
+    commands.add_parser(
+        "qual",
+        help="run MSC Tests three times for storage qualification",
+        description=(
+            "Run MSC Tests three consecutive times using the detected controller and USB3."
+        ),
     )
     parse_parser = commands.add_parser(
         "parse",
@@ -63,6 +70,10 @@ def main(argv: Sequence[str] | None = None) -> None:
     arguments = parser.parse_args(command_arguments)
     if arguments.command == "parse":
         _run_parser(arguments.directory, parser)
+        return
+
+    if arguments.command == "qual":
+        runpy.run_module("cv_suite_automator.qualification", run_name="__main__")
         return
 
     original_argv = sys.argv

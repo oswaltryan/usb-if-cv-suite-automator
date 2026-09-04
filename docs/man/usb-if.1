@@ -8,6 +8,8 @@ usb-if \- automate USB-IF CV Suite test runs and summarize existing results
 .B usb-if run
 .I CHIPSET
 .PP
+.B usb-if qual
+.PP
 .B usb-if parse
 .I DIRECTORY
 .PP
@@ -30,6 +32,18 @@ the device between controller ports.
 is a non-interactive results command. It reads existing CV Suite HTML reports
 for one product firmware version and creates a JSON failure summary without
 initializing CV Suite or any lab hardware.
+.PP
+.B usb-if qual
+runs a dedicated storage qualification workflow without chipset,
+manufacturer, or test-selection input. It uses the DUT's detected host
+controller and USB3 protocol, opens CV Suite once, runs MSC Tests three
+consecutive times, and closes CV Suite once. A failed attempt does not prevent
+the remaining attempts from running.
+.PP
+If the DUT is initially detected on USB2, the command asks the operator to
+reconnect and unlock the same DUT on USB3. It polls device discovery and resumes
+automatically when the DUT is available on USB3, updating the detected host
+controller before CV Suite starts.
 .SH ARGUMENTS
 .TP
 .I CHIPSET
@@ -65,6 +79,23 @@ file in a timestamped session directory on the configured results drive.
 Reports are grouped by host controller and USB protocol.
 The timestamped session path uses a capacity directory named
 .BR {capacity}GB\ {manufacturer} .
+.PP
+The
+.B qual
+command writes qualification artifacts under
+.BR M:\eStorage\ Qualification\e{product}\ev{firmware}\e{capacity}GB\e{timestamp} .
+HTML reports are grouped beneath
+.BR Windows\ 11\e{detected\ controller}\eUSB3 .
+Its incrementally updated
+.B qualification_summary.json
+records the test name, operating system, controller, protocol, and the test
+count, failure count, status, and reason for each of the three attempts. The
+overall status remains
+.B In Progress
+until all attempts finish, then becomes
+.B Pass
+only if every attempt passed; otherwise it becomes
+.BR Fail .
 .PP
 The
 .B parse
@@ -120,10 +151,11 @@ produce the same JSON content.
 .SH EXIT STATUS
 .TP
 .B 0
-The selected command completed successfully, or help was displayed.
+The selected command completed successfully, qualification completed all three
+attempts regardless of their test outcomes, or help was displayed.
 .TP
 .B 1
-The automation workflow could not continue.
+The automation or qualification workflow could not continue.
 .TP
 .B 2
 The command usage was invalid, the parse directory was not a firmware-version
@@ -134,6 +166,7 @@ could not be written.
 .SH EXAMPLE
 .nf
 uv run usb-if run "3861EN-FL"
+uv run usb-if qual
 uv run usb-if parse "M:\eUSB-IF Results\e3861EN-FL SECURE KEY 3.0\ev0706"
 .fi
 .SH LIMITATIONS

@@ -47,7 +47,9 @@ def test_cli_help_exits_without_running_automation(monkeypatch, capsys, option: 
     output = capsys.readouterr().out
     assert "usage: usb-if" in output
     assert "run" in output
+    assert "qual" in output
     assert "parse" in output
+    assert "run MSC Tests three times for storage qualification" in output
     assert "summarize failures from an existing firmware directory" in output
     assert "-h, --help" in output
     assert calls == []
@@ -71,6 +73,42 @@ def test_cli_parse_help_describes_directory(capsys) -> None:
     output = capsys.readouterr().out
     assert "usage: usb-if parse" in output
     assert "DIRECTORY" in output
+
+
+def test_cli_qual_help_describes_three_msc_attempts(capsys) -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main(["qual", "--help"])
+
+    assert exit_info.value.code == 0
+    output = capsys.readouterr().out
+    assert "usage: usb-if qual" in output
+    assert "MSC Tests three consecutive times" in output
+
+
+def test_cli_runs_qualification_without_arguments(monkeypatch) -> None:
+    calls = []
+    original_argv = sys.argv
+    monkeypatch.setattr(
+        cli.runpy,
+        "run_module",
+        lambda module, run_name: calls.append((module, run_name, sys.argv)),
+    )
+
+    cli.main(["qual"])
+
+    assert calls == [("cv_suite_automator.qualification", "__main__", original_argv)]
+
+
+def test_cli_qual_rejects_extra_arguments(monkeypatch, capsys) -> None:
+    calls = []
+    monkeypatch.setattr(cli.runpy, "run_module", lambda *args, **kwargs: calls.append(args))
+
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main(["qual", "chipset"])
+
+    assert exit_info.value.code == 2
+    assert "unrecognized arguments" in capsys.readouterr().err
+    assert calls == []
 
 
 def test_cli_parse_writes_results_without_running_automation(monkeypatch, capsys) -> None:
