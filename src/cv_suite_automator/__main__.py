@@ -34,7 +34,7 @@ from .core import CVSuiteAutomation, controller
 from .usb_executable import find_apricorn_devices
 
 
-cv_suite = CVSuiteAutomation()
+cv_suite = CVSuiteAutomation(run_selection.storage_manufacturer)
 run_selection = resolve_device_capabilities(run_selection, cv_suite.device.uses_uasp)
 with open(cv_suite.destination_summary_json) as json_file:
     cv_suite.test_summary = json.load(json_file)

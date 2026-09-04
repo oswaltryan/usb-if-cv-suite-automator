@@ -145,7 +145,7 @@ class CVSuiteAutomation:
             A list of strings signifying certain known failure states.
 
     Methods:
-        __init__():
+        __init__(storage_manufacturer):
             Sets up all initial data, like the device under test and
             file paths for storing results. Reads one CLI argument.
 
@@ -161,13 +161,13 @@ class CVSuiteAutomation:
             Closes the CV Suite main window.
 
     Example:
-        cv_suite = CVSuiteAutomation()
+        cv_suite = CVSuiteAutomation("Kioxia")
         cv_suite.start_cv_suite()
         cv_suite.run_test(6)
         cv_suite.close_cv_suite()
     """
 
-    def __init__(self):
+    def __init__(self, storage_manufacturer):
         """
         Initializes the CVSuiteAutomation class by detecting the device and
         creating a Windows 11 test session.
@@ -211,6 +211,10 @@ class CVSuiteAutomation:
         # bcdUSB might look like "3.2" => self.usb_protocol = 3
         self.usb_protocol = int(self.device.bcdUSB)
 
+        # Use the operator-provided storage manufacturer in the capacity folder.
+        self.storage_manufacturer = storage_manufacturer
+        self.capacity_directory_name = f"{self.device.driveSizeGB}GB {self.storage_manufacturer}"
+
         # Define base paths needed for the session discovery logic
         self.destination_drive = "M:\\USB-IF Results"
         self.source_summary_json = str(Path(__file__).with_name("summary_template.json"))
@@ -221,7 +225,7 @@ class CVSuiteAutomation:
         # --- Stage 3: Define all paths based on the discovered or created session ID ---
         self.session_dir = (
             f"{self.destination_drive}\\{self.test_description_input}\\"
-            f"v{self.device.bcdDevice}\\{self.device.driveSizeGB}GB\\"
+            f"v{self.device.bcdDevice}\\{self.capacity_directory_name}\\"
             f"{self.test_datetime}"
         )
         self.destination_reports_dir = f"{self.session_dir}\\Windows {self.windows_version}"
@@ -347,7 +351,7 @@ class CVSuiteAutomation:
         """Create a unique Windows 11 test session."""
         base_device_dir = (
             f"{self.destination_drive}\\{self.test_description_input}\\"
-            f"v{self.device.bcdDevice}\\{self.device.driveSizeGB}GB"
+            f"v{self.device.bcdDevice}\\{self.capacity_directory_name}"
         )
         os.makedirs(base_device_dir, exist_ok=True)
 

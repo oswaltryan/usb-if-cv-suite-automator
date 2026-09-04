@@ -21,6 +21,8 @@ reports produced by the selected tests.
 .PP
 At startup, the program prompts for tests, host controllers, and USB protocol
 modes. Press Enter at a selection prompt to select every available choice.
+After USB Protocol Selection, the program prompts for the storage manufacturer.
+That value is normalized and used in the capacity results directory name.
 When both host controllers are selected, the operator is prompted once to move
 the device between controller ports.
 .PP
@@ -61,6 +63,8 @@ Each run saves the CV Suite HTML reports and a
 .B summary.json
 file in a timestamped session directory on the configured results drive.
 Reports are grouped by host controller and USB protocol.
+The timestamped session path uses a capacity directory named
+.BR {capacity}GB\ {manufacturer} .
 .PP
 The
 .B parse

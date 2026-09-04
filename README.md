@@ -116,7 +116,9 @@ At startup, the runner presents numbered Test, Controller, and USB Protocol
 selections. Enter one or more space-separated numbers, or press Enter at a
 prompt to run all of its options. Chapter 9 automatically maps to the correct
 USB2 or USB3 suite. UASP is offered provisionally before DUT enumeration and
-is skipped automatically when the selected device does not support it.
+is skipped automatically when the selected device does not support it. After
+USB Protocol Selection, enter the storage manufacturer used to label the
+capacity results directory.
 
 Operator workflow:
 - Start the automation with `uv run usb-if run "{chipset}"`.
@@ -128,7 +130,7 @@ Operator workflow:
 Test artifacts are written to a structured session directory:
 
 ```text
-M:\USB-IF Results\<chipset + product>\v<bcdDevice>\<capacity>GB\<timestamp>\
+M:\USB-IF Results\<chipset + product>\v<bcdDevice>\<capacity>GB <manufacturer>\<timestamp>\
 ```
 
 Each session stores:
