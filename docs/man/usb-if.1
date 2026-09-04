@@ -1,12 +1,18 @@
 .TH USB-IF 1 "September 2026" "cv-suite-automator 0.2.1" "User Commands"
 .SH NAME
-usb-if \- automate USB-IF CV Suite test runs
+usb-if \- automate USB-IF CV Suite test runs and summarize existing results
 .SH SYNOPSIS
 .B usb-if
 .RB { \-h | \-\-help }
 .PP
-.B usb-if
+.B usb-if run
 .I CHIPSET
+.PP
+.B usb-if parse
+.I DIRECTORY
+.PP
+.B usb-if parse
+.RB { \-h | \-\-help }
 .SH DESCRIPTION
 .B usb-if
 runs the interactive CV Suite automation workflow on a Windows 11 validation
@@ -17,38 +23,104 @@ At startup, the program prompts for tests, host controllers, and USB protocol
 modes. Press Enter at a selection prompt to select every available choice.
 When both host controllers are selected, the operator is prompted once to move
 the device between controller ports.
+.PP
+.B usb-if parse
+is a non-interactive results command. It reads existing CV Suite HTML reports
+for one product firmware version and creates a JSON failure summary without
+initializing CV Suite or any lab hardware.
 .SH ARGUMENTS
 .TP
 .I CHIPSET
 The bridge controller chipset name used to identify the test session, for
 example
 .BR 3861EN-FL .
+.TP
+.I DIRECTORY
+A firmware-version results directory shaped as
+.BR {results_drive}\eUSB-IF\ Results\e{product}\e{firmware_version} .
+The directory must be exactly at the firmware-version level. A product
+directory containing multiple firmware-version subdirectories, a capacity
+directory, or a timestamped session directory is not accepted.
 .SH OPTIONS
 .TP
 .B \-h, \-\-help
-Show a concise command-line usage summary and exit without initializing lab
-hardware.
+Show a concise usage summary for the selected command and exit without
+initializing lab hardware.
 .SH REQUIREMENTS
-The command requires a Windows 11 validation host, USB-IF CV Suite, an unlocked
-supported device, the Phidgets relay controller and USB2/USB3 switchboard, and
-the configured external results drive.
+The automation command requires a Windows 11 validation host, USB-IF CV Suite,
+an unlocked supported device, the Phidgets relay controller and USB2/USB3
+switchboard, and the configured external results drive.
+.PP
+The
+.B parse
+command requires only read and write access to a populated firmware-version
+results directory. It does not require a connected device, CV Suite, or the
+switchboard.
 .SH OUTPUT
 Each run saves the CV Suite HTML reports and a
 .B summary.json
 file in a timestamped session directory on the configured results drive.
 Reports are grouped by host controller and USB protocol.
+.PP
+The
+.B parse
+command reads all capacities, timestamped sessions, and HTML report attempts
+under one firmware version. It writes
+.B results.json
+in that firmware directory, replacing an existing file atomically. The JSON
+contains a
+.B capacities
+object followed by an
+.B aggregate
+array. Each failure records
+.BR os ,
+.BR controller ,
+.BR protocol ,
+.BR suite ,
+.BR test ,
+and
+.BR occurrences .
+.PP
+Each capacity key is the complete capacity directory name, including a storage
+vendor suffix when present. Capacities with no failures are included with an
+empty array. The aggregate array sums matching failures across every capacity
+and session while keeping operating system, controller, protocol, suite, and
+test identity distinct.
+.SH PARSE SEMANTICS
+Individual failures come from CV Suite
+.B Test-Fail
+metadata. The occurrence count is the reported
+.B Fails (N)
+value, not merely the number of HTML files containing the test. If a failed
+suite reports failures but identifies no individual test, its failures are
+listed as
+.BR Unattributed\ suite\ failure .
+.PP
+Every failed report attempt is counted, including an attempt followed by a
+passing rerun. Warnings and aborts are not counted as failures. Reports are
+processed in deterministic order so repeated invocations over unchanged input
+produce the same JSON content.
 .SH EXIT STATUS
 .TP
 .B 0
-The selected run completed successfully.
+The selected command completed successfully, or help was displayed.
 .TP
 .B 1
-The command was invoked incorrectly or the automation could not continue.
+The automation workflow could not continue.
+.TP
+.B 2
+The command usage was invalid, the parse directory was not a firmware-version
+directory, no recognizable CV Suite HTML reports were found, report metadata
+was malformed, or
+.B results.json
+could not be written.
 .SH EXAMPLE
 .nf
-usb-if "3861EN-FL"
+uv run usb-if run "3861EN-FL"
+uv run usb-if parse "M:\eUSB-IF Results\e3861EN-FL SECURE KEY 3.0\ev0706"
 .fi
 .SH LIMITATIONS
 The workflow is Windows-only and depends on lab-specific hardware and CV Suite
 window behavior. A physical cable move is required when both host controllers
-are selected.
+are selected. The parser expects the directory hierarchy and HTML metadata
+produced by CV Suite and does not infer exact tests from summary.json alone.
