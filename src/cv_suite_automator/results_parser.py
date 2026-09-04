@@ -27,17 +27,15 @@ class FailureIdentity:
 
     def as_json(
         self,
-        occurrences: int,
+        occurrences: int | None = None,
         duts: list[str] | None = None,
     ) -> dict[str, str | int | list[str]]:
         result: dict[str, str | int | list[str]] = {
-            "os": self.operating_system,
-            "controller": self.controller,
-            "protocol": self.protocol,
             "suite": self.suite,
             "test": self.test,
-            "occurrences": occurrences,
         }
+        if occurrences is not None:
+            result["occurrences"] = occurrences
         if duts is not None:
             result["DUTs"] = duts
         return result
@@ -47,6 +45,7 @@ class _MetadataParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.values: dict[str, list[str]] = {}
+        self.has_ignored_failure = False
 
     def handle_starttag(
         self,
@@ -61,6 +60,10 @@ class _MetadataParser(HTMLParser):
         if name is not None and content is not None:
             self.values.setdefault(name.casefold(), []).append(content)
 
+    def handle_data(self, data: str) -> None:
+        if data.strip().casefold() in _IGNORED_FAILURE_TEXTS:
+            self.has_ignored_failure = True
+
 
 _FAIL_COUNT = re.compile(r"\bFails\s*\(\s*(\d+)\s*\)", re.IGNORECASE)
 _TEST_FAILURE = re.compile(
@@ -68,6 +71,17 @@ _TEST_FAILURE = re.compile(
     re.IGNORECASE,
 )
 _NATURAL_PART = re.compile(r"(\d+)")
+_IGNORED_FAILURE_TEXTS = frozenset(
+    message.casefold()
+    for message in (
+        "No MSC/BOT Device selected for testing.",
+        "No USB Device selected for testing.",
+        (
+            "This test suite is designed for Enhanced SuperSpeed devices only, but no "
+            "Enhanced SuperSpeed devices have been detected."
+        ),
+    )
+)
 
 
 def _natural_key(value: str) -> tuple[tuple[int, int | str], ...]:
@@ -88,6 +102,31 @@ def _failure_key(identity: FailureIdentity) -> tuple[str, ...]:
     )
 
 
+FailureJson = dict[str, str | int | list[str]]
+GroupedFailures = dict[str, dict[str, dict[str, list[FailureJson]]]]
+
+
+def _group_failures(
+    totals: dict[FailureIdentity, int],
+    *,
+    include_occurrences: bool,
+    duts: dict[FailureIdentity, set[str]] | None = None,
+) -> GroupedFailures:
+    grouped: GroupedFailures = {}
+    for identity in sorted(totals, key=_failure_key):
+        protocol_failures = (
+            grouped.setdefault(identity.operating_system, {})
+            .setdefault(identity.controller, {})
+            .setdefault(identity.protocol, [])
+        )
+        identity_duts = None
+        if duts is not None:
+            identity_duts = sorted(duts[identity], key=_natural_key)
+        occurrences = totals[identity] if include_occurrences else None
+        protocol_failures.append(identity.as_json(occurrences, identity_duts))
+    return grouped
+
+
 def _read_report(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8-sig")
@@ -100,7 +139,7 @@ def _read_report(path: Path) -> str:
         raise ResultsParseError(f"Could not read report {path}: {exc}") from exc
 
 
-def _metadata(path: Path) -> dict[str, list[str]]:
+def _metadata(path: Path) -> _MetadataParser:
     parser = _MetadataParser()
     try:
         parser.feed(_read_report(path))
@@ -108,7 +147,7 @@ def _metadata(path: Path) -> dict[str, list[str]]:
         if isinstance(exc, ResultsParseError):
             raise
         raise ResultsParseError(f"Could not parse report {path}: {exc}") from exc
-    return parser.values
+    return parser
 
 
 def _suite_name(metadata: dict[str, list[str]], path: Path) -> str:
@@ -130,7 +169,8 @@ def _report_failures(
     path: Path,
     context: tuple[str, str, str],
 ) -> list[tuple[FailureIdentity, int]] | None:
-    metadata = _metadata(path)
+    parsed_report = _metadata(path)
+    metadata = parsed_report.values
     suite_results = metadata.get("suite-result", [])
     if not suite_results:
         return None
@@ -161,7 +201,7 @@ def _report_failures(
             )
 
     suite_count = _reported_count(suite_result, path, "suite")
-    if not failures and suite_count > 0:
+    if not failures and suite_count > 0 and not parsed_report.has_ignored_failure:
         failures.append(
             (
                 FailureIdentity(
@@ -230,21 +270,17 @@ def parse_results(directory: str | Path) -> dict[str, Any]:
         raise ResultsParseError(f"No recognizable CV Suite reports found in: {firmware_directory}")
 
     capacities = {
-        capacity: [
-            identity.as_json(totals[identity]) for identity in sorted(totals, key=_failure_key)
-        ]
+        capacity: _group_failures(totals, include_occurrences=False)
         for capacity, totals in sorted(
             capacity_failures.items(),
             key=lambda item: _natural_key(item[0]),
         )
     }
-    aggregate_json = [
-        identity.as_json(
-            aggregate[identity],
-            sorted(aggregate_duts[identity], key=_natural_key),
-        )
-        for identity in sorted(aggregate, key=_failure_key)
-    ]
+    aggregate_json = _group_failures(
+        aggregate,
+        include_occurrences=True,
+        duts=aggregate_duts,
+    )
     return {"aggregate": aggregate_json, "capacities": capacities}
 
 

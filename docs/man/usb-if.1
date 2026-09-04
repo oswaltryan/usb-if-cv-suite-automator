@@ -70,27 +70,25 @@ under one firmware version. It writes
 in that firmware directory, replacing an existing file atomically. The JSON
 contains a
 .B aggregate
-array followed by a
+object followed by a
 .B capacities
-object. Each failure records
-.BR os ,
-.BR controller ,
-.BR protocol ,
+object. Both sections group failures by operating system, USB controller, and
+USB protocol. Each failure within those groups records
 .BR suite ,
-.BR test ,
-and
-.BR occurrences .
+.BR test .
 .PP
-Aggregate entries additionally contain a
+Aggregate entries additionally contain
+.B occurrences
+followed by a
 .B DUTs
-array immediately after
-.BR occurrences .
+array.
 It lists the unique, naturally sorted capacity-directory names that contributed
-to that aggregate failure. Per-capacity entries do not contain this field.
+to that aggregate failure. Per-capacity entries contain neither occurrence
+counts nor DUT lists.
 .PP
 Each capacity key is the complete capacity directory name, including a storage
 vendor suffix when present. Capacities with no failures are included with an
-empty array. The aggregate array sums matching failures across every capacity
+empty object. The aggregate object sums matching failures across every capacity
 and session while keeping operating system, controller, protocol, suite, and
 test identity distinct.
 .SH PARSE SEMANTICS
@@ -102,6 +100,14 @@ value, not merely the number of HTML files containing the test. If a failed
 suite reports failures but identifies no individual test, its failures are
 listed as
 .BR Unattributed\ suite\ failure .
+.PP
+The known CV Suite noise messages
+.B No MSC/BOT Device selected for testing.
+and
+.B No USB Device selected for testing.
+as well as the message stating that no Enhanced SuperSpeed devices were
+detected, do not create unattributed failures. Any separately attributed test
+failures in the same report are still included.
 .PP
 Every failed report attempt is counted, including an attempt followed by a
 passing rerun. Warnings and aborts are not counted as failures. Reports are

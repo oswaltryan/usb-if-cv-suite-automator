@@ -154,12 +154,20 @@ directory containing multiple firmware versions. The command reads every
 capacity, timestamped session, and HTML report beneath it, then writes
 `results.json` alongside the capacity directories. Each capacity lists its
 exact `Test-Fail` entries with operating-system, controller, protocol, and
-suite context. The top-level `aggregate` list appears first, sums CV Suite's
-reported failure counts across all capacities, and adds a `DUTs` list containing
-the unique, naturally sorted capacity-folder names that contributed to each
-failure. The `capacities` breakdown follows it. Every failed attempt is counted,
-including an attempt followed by a passing rerun; suite failures that name no
-individual test are reported as `Unattributed suite failure`.
+suite context. Both top-level sections group failures by operating system, USB
+controller, and USB protocol so those values are not repeated on every failure.
+The `aggregate` object appears first, sums CV Suite's reported failure counts
+across all capacities, and adds a `DUTs` list containing the unique, naturally
+sorted capacity-folder names that contributed to each failure. The `capacities`
+breakdown follows it and lists only `suite` and `test`; occurrence counts are
+omitted there because they are represented by the aggregate. Every failed
+attempt is counted, including an attempt followed by a passing rerun; suite
+failures that name no individual test are reported as
+`Unattributed suite failure`. The known CV Suite noise messages
+`No MSC/BOT Device selected for testing.` and
+`No USB Device selected for testing.`, as well as the message stating that no
+Enhanced SuperSpeed devices were detected, are excluded unless the same report
+contains a separately attributed test failure.
 
 ## Development checks
 

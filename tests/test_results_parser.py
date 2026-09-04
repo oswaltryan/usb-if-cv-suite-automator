@@ -40,6 +40,7 @@ def _report(
     result: str = "PASS [Fails (0); Aborts (0); Warnings (0)]",
     test_failures: tuple[tuple[str, int], ...] = (),
     filename: str = "report.html",
+    body: str = "",
 ) -> Path:
     path = firmware / capacity / session / operating_system / controller / protocol / filename
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -54,7 +55,7 @@ def _report(
                 f"<META name='Suite-Name' content='{suite}.cvtests' />",
                 f"<META name='Suite-Result' content='{result}' />",
                 failure_metadata,
-                "</head></html>",
+                f"</head><body>{body}</body></html>",
             )
         ),
         encoding="utf-8",
@@ -87,12 +88,14 @@ def test_parses_all_attempts_sessions_and_aggregates_exact_failure_counts(scratc
 
     assert list(result) == ["aggregate", "capacities"]
     assert list(result["capacities"]) == ["4GB Phison", "8GB Kioxia", "16GB Kioxia"]
-    assert result["capacities"]["8GB Kioxia"] == []
-    assert result["capacities"]["4GB Phison"][0]["test"] == failing_test
-    assert result["capacities"]["4GB Phison"][0]["occurrences"] == 2
-    assert "DUTs" not in result["capacities"]["4GB Phison"][0]
-    assert result["aggregate"][0]["occurrences"] == 3
-    assert result["aggregate"][0]["DUTs"] == ["4GB Phison", "16GB Kioxia"]
+    assert result["capacities"]["8GB Kioxia"] == {}
+    capacity_failure = result["capacities"]["4GB Phison"]["Windows 11"]["Intel"]["USB2"][0]
+    assert capacity_failure["test"] == failing_test
+    assert "occurrences" not in capacity_failure
+    assert "DUTs" not in capacity_failure
+    aggregate_failure = result["aggregate"]["Windows 11"]["Intel"]["USB2"][0]
+    assert aggregate_failure["occurrences"] == 3
+    assert aggregate_failure["DUTs"] == ["4GB Phison", "16GB Kioxia"]
 
 
 def test_keeps_controller_protocol_and_suite_context_distinct(scratch: Path) -> None:
@@ -114,9 +117,12 @@ def test_keeps_controller_protocol_and_suite_context_distinct(scratch: Path) -> 
 
     result = parse_results(firmware)
 
-    assert len(result["capacities"]["32GB"]) == 2
-    assert len(result["aggregate"]) == 2
-    assert all(failure["DUTs"] == ["32GB"] for failure in result["aggregate"])
+    capacity = result["capacities"]["32GB"]["Windows 11"]
+    assert capacity["ASMedia"]["USB3"][0]["test"] == "Same test name"
+    assert capacity["Intel"]["USB2"][0]["test"] == "Same test name"
+    aggregate = result["aggregate"]["Windows 11"]
+    assert aggregate["ASMedia"]["USB3"][0]["DUTs"] == ["32GB"]
+    assert aggregate["Intel"]["USB2"][0]["DUTs"] == ["32GB"]
 
 
 def test_aggregate_duts_are_unique_across_attempts(scratch: Path) -> None:
@@ -133,8 +139,9 @@ def test_aggregate_duts_are_unique_across_attempts(scratch: Path) -> None:
 
     result = parse_results(firmware)
 
-    assert result["aggregate"][0]["occurrences"] == 4
-    assert result["aggregate"][0]["DUTs"] == ["512GB SMI"]
+    failure = result["aggregate"]["Windows 11"]["Intel"]["USB2"][0]
+    assert failure["occurrences"] == 4
+    assert failure["DUTs"] == ["512GB SMI"]
 
 
 def test_uses_suite_failure_when_no_test_failure_is_attributed(scratch: Path) -> None:
@@ -147,9 +154,9 @@ def test_uses_suite_failure_when_no_test_failure_is_attributed(scratch: Path) ->
 
     result = parse_results(firmware)
 
-    failure = result["capacities"]["64GB"][0]
+    failure = result["capacities"]["64GB"]["Windows 11"]["Intel"]["USB2"][0]
     assert failure["test"] == "Unattributed suite failure"
-    assert failure["occurrences"] == 2
+    assert "occurrences" not in failure
 
 
 def test_abort_only_report_does_not_create_a_failure(scratch: Path) -> None:
@@ -160,7 +167,46 @@ def test_abort_only_report_does_not_create_a_failure(scratch: Path) -> None:
         result="FAIL [Fails (0); Aborts (1); Warnings (0)]",
     )
 
-    assert parse_results(firmware) == {"aggregate": [], "capacities": {"128GB": []}}
+    assert parse_results(firmware) == {"aggregate": {}, "capacities": {"128GB": {}}}
+
+
+@pytest.mark.parametrize(
+    "noise_message",
+    [
+        "No MSC/BOT Device selected for testing.",
+        "No USB Device selected for testing.",
+        (
+            "This test suite is designed for Enhanced SuperSpeed devices only, but no "
+            "Enhanced SuperSpeed devices have been detected."
+        ),
+    ],
+)
+def test_ignores_device_selection_noise(scratch: Path, noise_message: str) -> None:
+    firmware = _firmware_directory(scratch)
+    _report(
+        firmware,
+        "64GB Kioxia",
+        suite="MSC Tests",
+        result="FAIL [Fails (2); Aborts (2); Warnings (0)]",
+        body=f"<div>{noise_message}</div>",
+    )
+
+    assert parse_results(firmware) == {"aggregate": {}, "capacities": {"64GB Kioxia": {}}}
+
+
+def test_msc_bot_noise_does_not_hide_an_attributed_failure(scratch: Path) -> None:
+    firmware = _firmware_directory(scratch)
+    _report(
+        firmware,
+        "64GB Kioxia",
+        suite="MSC Tests",
+        result="FAIL [Fails (1); Aborts (1); Warnings (0)]",
+        test_failures=(("Real MSC failure", 1),),
+        body="<div>No MSC/BOT Device selected for testing.</div>",
+    )
+
+    failure = parse_results(firmware)["aggregate"]["Windows 11"]["Intel"]["USB2"][0]
+    assert failure["test"] == "Real MSC failure"
 
 
 def test_write_results_replaces_json_and_printable_payload_is_stable(scratch: Path) -> None:
@@ -173,8 +219,8 @@ def test_write_results_replaces_json_and_printable_payload_is_stable(scratch: Pa
 
     assert written == destination.resolve()
     assert json.loads(destination.read_text(encoding="utf-8")) == {
-        "aggregate": [],
-        "capacities": {"256GB": []},
+        "aggregate": {},
+        "capacities": {"256GB": {}},
     }
     assert destination.read_bytes().endswith(b"\n")
 
